@@ -1,0 +1,4 @@
+MSH|^~\&|CTApp|Hospital|PACS|Hospital|20230503||ORU^R01|MSG00001|P|2.3
+PID|||WARDA AWAAD|||
+OBR|||20230503|||CT
+OBX|||CTDIvol||33.3|mGy
