@@ -1,0 +1,4 @@
+MSH|^~\&|CTApp|Hospital|PACS|Hospital|19010101||ORU^R01|MSG00001|P|2.3
+PID|||d9259a3b-920f-407c-81ef-6be003b11c6c|||
+OBR|||19010101|||CT
+OBX|||CTDIvol||0.0|mGy
