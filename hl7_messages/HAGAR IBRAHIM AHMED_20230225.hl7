@@ -1,0 +1,6 @@
+MSH|^~\&|CTApp|Hospital|PACS|Hospital|20230225||ORU^R01|MSG00001|P|2.3
+PID|||HAGAR IBRAHIM AHMED|||F||
+OBR|||100684^100684|||CT
+OBX|1|NM|CTDIvol||59.6|mGy|||
+OBX|2|NM|DLP||0.0|mGy*cm|||
+OBX|3|NM|EffectiveDose||0.83|mSv|||
