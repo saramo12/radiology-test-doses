@@ -6,15 +6,15 @@ import os
 from datetime import datetime
 
 ctk.set_appearance_mode("light")
-ctk.set_default_color_theme("blue")
+ctk.set_default_color_theme("dark-blue")
+
 CSV_FILE = "rad.csv"
 HL7_DIR = "hl7_messages"
 os.makedirs(HL7_DIR, exist_ok=True)
 
 all_data = []
 selected_cases = []
-image_refs = []  # مهم جداً لتخزين الصور حتى لا يتم جمعها من الذاكرة
-
+check_vars = []
 
 def convert_to_hl7(ds, msv):
     name = str(getattr(ds, "PatientName", "Unknown"))
@@ -25,27 +25,25 @@ def convert_to_hl7(ds, msv):
     dob = getattr(ds, "PatientBirthDate", "")
     study_id = getattr(ds, "StudyID", "")
     accession = getattr(ds, "AccessionNumber", "")
-    modality = getattr(ds, "Modality", "Unknown")
 
-    return f"""MSH|^~\\&|CTApp|Hospital|PACS|Hospital|{date}||ORU^R01|MSG00001|P|2.3
+    return f"""MSH|^~\&|CTApp|Hospital|PACS|Hospital|{date}||ORU^R01|MSG00001|P|2.3
 PID|||{name}||{dob}|{gender}||
-OBR|||{study_id}^{accession}|||{modality}
+OBR|||{study_id}^{accession}|||CT
 OBX|1|NM|CTDIvol||{ctdi}|mGy|||
 OBX|2|NM|DLP||{dlp}|mGy*cm|||
 OBX|3|NM|EffectiveDose||{msv:.2f}|mSv|||"""
 
-
 def read_dicom_files():
-    global image_refs
     files = filedialog.askopenfilenames(filetypes=[("DICOM files", "*.dcm")])
     if not files:
         return
 
     all_data.clear()
     selected_cases.clear()
-    image_refs.clear()
+    for widget in content_frame.winfo_children():
+        widget.destroy()
 
-    unique_cases = {}
+    temp_cases = {}
     for path in files:
         try:
             ds = pydicom.dcmread(path)
@@ -53,8 +51,6 @@ def read_dicom_files():
             ctdi = float(getattr(ds, "CTDIvol", 0))
             dlp = float(getattr(ds, "DLP", 0))
             date_str = getattr(ds, "StudyDate", "00000000")
-            modality = getattr(ds, "Modality", "Unknown")
-
             try:
                 date_obj = datetime.strptime(date_str, "%Y%m%d")
             except:
@@ -62,22 +58,15 @@ def read_dicom_files():
 
             msv = ctdi * 0.014
 
-            img = None
-            if 'PixelData' in ds:
-                try:
-                    arr = ds.pixel_array
-                    if len(arr.shape) == 3 and arr.shape[0] == 3:
-                        arr = arr.transpose(1, 2, 0)
-                    pil_img = Image.fromarray(arr)
-                    pil_img.thumbnail((120, 120))
-                    img = ImageTk.PhotoImage(pil_img)
-                    image_refs.append(img)
-                except:
-                    img = None
+            key = (name, date_obj.date(), getattr(ds, "StudyID", ""), getattr(ds, "AccessionNumber", ""))
+            if key not in temp_cases:
+                img = None
+                if 'PixelData' in ds:
+                    img_pil = Image.fromarray(ds.pixel_array)
+                    img_pil.thumbnail((400, 400))  # تم زيادة الحجم هنا
+                    img = ImageTk.PhotoImage(img_pil)
 
-            key = (name, date_obj.date(), modality, getattr(ds, "StudyID", ""), getattr(ds, "AccessionNumber", ""))
-            if key not in unique_cases:
-                unique_cases[key] = {
+                data_dict = {
                     "Name": name,
                     "Date": date_obj,
                     "CTDIvol": ctdi,
@@ -87,151 +76,121 @@ def read_dicom_files():
                     "DOB": getattr(ds, "PatientBirthDate", ""),
                     "StudyID": getattr(ds, "StudyID", ""),
                     "Accession": getattr(ds, "AccessionNumber", ""),
-                    "Modality": modality,
                     "Image": img,
                     "Path": path,
-                    "Ds": ds
+                    "Modality": getattr(ds, "Modality", "Unknown"),
+                    "Dataset": ds
                 }
+                temp_cases[key] = data_dict
 
                 hl7_msg = convert_to_hl7(ds, msv)
-                hl7_filename = f"{HL7_DIR}/{name}_{date_obj.strftime('%Y%m%d')}_{modality}.hl7"
+                hl7_filename = f"{HL7_DIR}/{name}_{date_obj.strftime('%Y%m%d')}_{data_dict['StudyID']}.hl7"
                 with open(hl7_filename, "w") as f:
                     f.write(hl7_msg)
 
         except Exception as e:
             messagebox.showerror("Error", f"Failed to process file {path}.\nError: {e}")
 
-    all_data.extend(unique_cases.values())
+    all_data.extend(temp_cases.values())
     display_text_data()
-
 
 def display_text_data():
     for widget in content_frame.winfo_children():
         widget.destroy()
 
-    sort_option = sort_var.get()
-    sorted_data = sorted(all_data, key=lambda x: x[sort_option])
+    # حساب المجموع الكلي والجرعة السنوية لكل مريض
+    dose_accumulated = {}  # {patient_name: total_dose}
+    doses_per_year = {}    # {(patient_name, year): total_dose}
 
-    # إنشاء إطار لكل عمود عموديًا
-    columns = {
-        "Select": [],
-        "Image": [],
-        "Name": [],
-        "Date": [],
-        "Modality": [],
-        "CTDIvol (mGy)": [],
-        "DLP (mGy·cm)": [],
-        "Dose (mSv)": [],
-        "Sex": [],
-        "DOB": []
-    }
+    for data in all_data:
+        name = data["Name"]
+        dose = data["mSv"]
+        year = data["Date"].year
 
-    # رؤوس الأعمدة
-    header_font = ctk.CTkFont(size=14, weight="bold")
-    for col_idx, col_name in enumerate(columns.keys()):
-        lbl = ctk.CTkLabel(content_frame, text=col_name, font=header_font, anchor="center")
-        lbl.grid(row=0, column=col_idx, padx=8, pady=5)
+        # مجموع الجرعات الكلي لكل مريض
+        dose_accumulated[name] = dose_accumulated.get(name, 0) + dose
+        # مجموع الجرعة للسنة لكل مريض
+        doses_per_year[(name, year)] = doses_per_year.get((name, year), 0) + dose
 
-    # ملء البيانات لكل عمود في عموده الخاص
-    for row_idx, data in enumerate(sorted_data, start=1):
-        var = ctk.BooleanVar(value=(data in selected_cases))
-
-        # خانة الاختيار
-        chk = ctk.CTkCheckBox(content_frame, variable=var,
-                              command=lambda d=data, v=var: on_check(d, v))
-        chk.grid(row=row_idx, column=0, padx=8, pady=6)
-
-        # صورة صغيرة إن وجدت
-        if data["Image"]:
-            img_lbl = ctk.CTkLabel(content_frame, image=data["Image"], text="")
-            img_lbl.image = data["Image"]
-            img_lbl.grid(row=row_idx, column=1, padx=8, pady=6)
+    # حساب الجرعة السنوية المتوسطة لكل مريض = مجموع الجرعات الكلية / عدد السنوات التي حصل فيها على جرعات
+    dose_per_year_avg = {}
+    for name in dose_accumulated:
+        years = [y for (n, y) in doses_per_year.keys() if n == name]
+        if years:
+            dose_per_year_avg[name] = dose_accumulated[name] / len(set(years))
         else:
-            img_lbl = ctk.CTkLabel(content_frame, text="No Image", fg_color="#ddd", width=120, height=120)
-            img_lbl.grid(row=row_idx, column=1, padx=8, pady=6)
+            dose_per_year_avg[name] = 0
 
-        ctk.CTkLabel(content_frame, text=data["Name"], anchor="w").grid(row=row_idx, column=2, padx=8, pady=6)
-        ctk.CTkLabel(content_frame, text=data["Date"].strftime("%Y-%m-%d")).grid(row=row_idx, column=3, padx=8, pady=6)
-        ctk.CTkLabel(content_frame, text=data["Modality"]).grid(row=row_idx, column=4, padx=8, pady=6)
-        ctk.CTkLabel(content_frame, text=f"{data['CTDIvol']:.2f}").grid(row=row_idx, column=5, padx=8, pady=6)
-        ctk.CTkLabel(content_frame, text=f"{data['DLP']:.2f}").grid(row=row_idx, column=6, padx=8, pady=6)
-        ctk.CTkLabel(content_frame, text=f"{data['mSv']:.2f}").grid(row=row_idx, column=7, padx=8, pady=6)
-        ctk.CTkLabel(content_frame, text=data["Sex"]).grid(row=row_idx, column=8, padx=8, pady=6)
-        ctk.CTkLabel(content_frame, text=data["DOB"]).grid(row=row_idx, column=9, padx=8, pady=6)
+    # ترتيب البيانات
+    sort_option = sort_var.get()
+    sorted_data = sorted(all_data, key=lambda x: x[sort_option] if sort_option != "Name" else x["Name"].lower())
 
+    scroll_frame = ctk.CTkScrollableFrame(content_frame, corner_radius=10, fg_color="#ffffff")
+    scroll_frame.pack(fill="both", expand=True, padx=20, pady=10)
 
-def on_check(data, var):
-    if var.get():
-        if data in selected_cases:
-            return
-        if len(selected_cases) >= 4:
-            messagebox.showwarning("Limit Reached", "You can only select up to 4 cases.")
-            var.set(False)
-            return
-        selected_cases.append(data)
-    else:
-        if data in selected_cases:
-            selected_cases.remove(data)
+    headers = ["Select", "Patient Name", "Study ID", "Date", "Modality", "Dose (mSv)", "Total Accumulated Dose (mSv)", "Dose Per Year (mSv)"]
+    for col, header in enumerate(headers):
+        lbl = ctk.CTkLabel(scroll_frame, text=header, font=ctk.CTkFont(size=14, weight="bold"))
+        lbl.grid(row=0, column=col, padx=10, pady=10, sticky="w")
 
+    check_vars.clear()
+    for row, data in enumerate(sorted_data, start=1):
+        var = ctk.BooleanVar(value=data in selected_cases)
+        check_vars.append((var, data))
+        chk = ctk.CTkCheckBox(scroll_frame, variable=var)
+        chk.grid(row=row, column=0, padx=10, pady=5, sticky="w")
 
-def delete_selected_cases():
+        ctk.CTkLabel(scroll_frame, text=data["Name"]).grid(row=row, column=1, padx=10, pady=5, sticky="w")
+        ctk.CTkLabel(scroll_frame, text=str(data["StudyID"])).grid(row=row, column=2, padx=10, pady=5, sticky="w")
+        ctk.CTkLabel(scroll_frame, text=data["Date"].strftime("%Y-%m-%d")).grid(row=row, column=3, padx=10, pady=5, sticky="w")
+        ctk.CTkLabel(scroll_frame, text=data["Modality"]).grid(row=row, column=4, padx=10, pady=5, sticky="w")
+        ctk.CTkLabel(scroll_frame, text=f"{data['mSv']:.2f}").grid(row=row, column=5, padx=10, pady=5, sticky="w")
+        ctk.CTkLabel(scroll_frame, text=f"{dose_accumulated.get(data['Name'], 0):.2f}").grid(row=row, column=6, padx=10, pady=5, sticky="w")
+        ctk.CTkLabel(scroll_frame, text=f"{dose_per_year_avg.get(data['Name'], 0):.2f}").grid(row=row, column=7, padx=10, pady=5, sticky="w")
+
+def update_selected_cases():
+    selected_cases.clear()
+    for var, data in check_vars:
+        if var.get():
+            selected_cases.append(data)
+
+def show_hl7_message():
+    update_selected_cases()
     if not selected_cases:
-        messagebox.showinfo("Info", "No cases selected to delete.")
-        return
-    for case in selected_cases[:]:
-        if case in all_data:
-            all_data.remove(case)
-        selected_cases.remove(case)
-    display_text_data()
-
-
-def show_hl7_messages():
-    if not selected_cases:
-        messagebox.showinfo("Info", "No cases selected to view HL7 message.")
+        messagebox.showwarning("No Selection", "Please select at least one case to view HL7 message.")
         return
 
-    password = simpledialog.askstring("Password", "Enter password to view HL7 messages:", show='*')
+    password = simpledialog.askstring("Password", "Enter password to view HL7 message:", show='*')
     if password != "admin123":
         messagebox.showerror("Unauthorized", "Incorrect password.")
         return
 
-    combined_msg = ""
-    for data in selected_cases:
-        filename = f"{HL7_DIR}/{data['Name']}_{data['Date'].strftime('%Y%m%d')}_{data['Modality']}.hl7"
-        if os.path.exists(filename):
-            with open(filename, "r") as f:
-                hl7 = f.read()
-            combined_msg += f"--- HL7 Message for {data['Name']} on {data['Date'].strftime('%Y-%m-%d')} ({data['Modality']}) ---\n"
-            combined_msg += hl7 + "\n\n"
-        else:
-            combined_msg += f"HL7 message not found for {data['Name']} on {data['Date'].strftime('%Y-%m-%d')} ({data['Modality']})\n\n"
-
-    top = ctk.CTkToplevel()
-    top.title("HL7 Messages")
-    top.geometry("700x500")
-
-    textbox = ctk.CTkTextbox(top, wrap="word")
-    textbox.pack(expand=True, fill="both", padx=10, pady=10)
-    textbox.insert("0.0", combined_msg)
-    textbox.configure(state="disabled")
-
+    data = selected_cases[-1]
+    hl7_filename = f"{HL7_DIR}/{data['Name']}_{data['Date'].strftime('%Y%m%d')}_{data['StudyID']}.hl7"
+    if os.path.exists(hl7_filename):
+        with open(hl7_filename, "r") as f:
+            hl7 = f.read()
+        messagebox.showinfo("HL7 Message", hl7)
+    else:
+        messagebox.showerror("Not Found", "HL7 message not found.")
 
 def show_selected_cases():
+    update_selected_cases()
     if len(selected_cases) not in [2, 4]:
-        messagebox.showwarning("Selection Error", "Please select exactly 2 or 4 cases.")
+        messagebox.showwarning("Selection Error", "Please select 2 or 4 cases.")
         return
 
-    top = ctk.CTkToplevel()
+    top = ctk.CTkToplevel(root)
     top.title("Selected Cases Viewer")
     top.geometry("1100x700")
-    top.lift()  # النافذة تظهر قدام النوافذ الأخرى
+    top.lift()
 
     for idx, data in enumerate(selected_cases):
         row = idx // 2
         col = idx % 2
 
-        frame = ctk.CTkFrame(top)
-        frame.grid(row=row, column=col, padx=15, pady=15)
+        frame = ctk.CTkFrame(top, fg_color="#f0f0f0", corner_radius=10)
+        frame.grid(row=row, column=col, padx=20, pady=20, sticky="nsew")
 
         if data["Image"]:
             img_label = ctk.CTkLabel(frame, image=data["Image"], text="")
@@ -242,46 +201,82 @@ def show_selected_cases():
             f"👤 Name: {data['Name']}\n"
             f"🆔 ID: {data['StudyID']}\n"
             f"📅 Date: {data['Date'].date()}\n"
-            f"🧬 Modality: {data['Modality']}\n"
+            f"🧬 Type: {data['Modality']}\n"
             f"☢ Dose: {data['mSv']:.2f} mSv\n"
-            f"🧪 CTDIvol: {data['CTDIvol']:.2f} mGy\n"
-            f"📏 DLP: {data['DLP']:.2f} mGy·cm\n"
+            f"🧪 CTDIvol: {data['CTDIvol']} mGy\n"
+            f"📏 DLP: {data['DLP']} mGy·cm\n"
             f"⚧ Sex: {data['Sex']}\n"
             f"🎂 DOB: {data['DOB']}"
         )
-        ctk.CTkLabel(frame, text=info, justify="left", font=ctk.CTkFont(size=13)).pack(pady=5)
+        ctk.CTkLabel(frame, text=info, justify="left").pack(pady=10)
 
+    for i in range(2):
+        top.grid_columnconfigure(i, weight=1)
+        top.grid_rowconfigure(i, weight=1)
+
+def resize_bg(event):
+    global bg_img_resized, bg_label
+    new_width = event.width
+    new_height = event.height
+    resized = bg_img_orig.resize((new_width, new_height), Image.ANTIALIAS)
+    bg_img_resized = ImageTk.PhotoImage(resized)
+    bg_label.configure(image=bg_img_resized)
 
 root = ctk.CTk()
-root.title("DICOM Viewer - Elegant Display")
+root.title("DICOM Viewer - Responsive Design")
 root.geometry("1300x900")
 
-# إضافة صورة الخلفية
-bg_img = Image.open("g.jpg").resize((1300, 900))
-bg_img_tk = ImageTk.PhotoImage(bg_img)
-background_label = ctk.CTkLabel(root, image=bg_img_tk)
-background_label.place(x=0, y=0, relwidth=1, relheight=1)
+# تحميل صورة الخلفية
+bg_img_orig = Image.open("g.jpg")  # ضع مسار صورتك هنا
+bg_img_resized = ImageTk.PhotoImage(bg_img_orig)
+bg_label = ctk.CTkLabel(root, image=bg_img_resized, text="")
+bg_label.place(x=0, y=0, relwidth=1, relheight=1)
+root.bind("<Configure>", resize_bg)
 
-select_button = ctk.CTkButton(root, text="📂 Select DICOM Files", command=read_dicom_files,
-                              font=ctk.CTkFont(size=16, weight="bold"))
-select_button.pack(pady=12)
+# زر اختيار ملفات DICOM
+load_button = ctk.CTkButton(root, text="Load DICOM Files", command=read_dicom_files, width=150, height=35)
+load_button.place(relx=0.02, rely=0.02)
 
+# زر عرض HL7
+hl7_button = ctk.CTkButton(root, text="Show HL7 Message", command=show_hl7_message, width=150, height=35)
+hl7_button.place(relx=0.20, rely=0.02)
+
+# اختيار الترتيب
 sort_var = ctk.StringVar(value="Name")
-sort_frame = ctk.CTkFrame(root)
-sort_frame.pack(pady=6)
-ctk.CTkLabel(sort_frame, text="Sort by:", font=ctk.CTkFont(size=14)).pack(side="left", padx=8)
-ctk.CTkOptionMenu(sort_frame, variable=sort_var, values=["Name", "Date"], command=lambda e: display_text_data()).pack(side="left")
+sort_label = ctk.CTkLabel(root, text="Sort by:")
+sort_label.place(relx=0.4, rely=0.02)
+sort_option_menu = ctk.CTkOptionMenu(root, variable=sort_var, values=["Name", "Date"])
+sort_option_menu.place(relx=0.47, rely=0.02)
 
-hl7_btn = ctk.CTkButton(root, text="Show HL7 Messages", command=show_hl7_messages,
-                        font=ctk.CTkFont(size=14, weight="bold"))
-hl7_btn.pack(pady=6)
+# زر عرض الحالات المحددة (2 أو 4)
+show_button = ctk.CTkButton(root, text="Show Selected Cases", command=show_selected_cases, width=180, height=35)
+show_button.place(relx=0.62, rely=0.02)
 
-content_frame = ctk.CTkFrame(root, fg_color="#f8f9fa", corner_radius=15)
-content_frame.pack(expand=True, fill="both", padx=12, pady=12)
+# زر حذف الحالات المحددة
+def delete_selected():
+    update_selected_cases()
+    if not selected_cases:
+        messagebox.showwarning("No Selection", "Please select cases to delete.")
+        return
+    for sel in selected_cases:
+        if sel in all_data:
+            all_data.remove(sel)
+    selected_cases.clear()
+    display_text_data()
 
-btn_frame = ctk.CTkFrame(root)
-btn_frame.pack(pady=10)
-ctk.CTkButton(btn_frame, text="Delete Selected", command=delete_selected_cases).pack(side="left", padx=12)
-ctk.CTkButton(btn_frame, text="View Selected Cases", command=show_selected_cases).pack(side="left", padx=12)
+delete_button = ctk.CTkButton(root, text="Delete Selected", command=delete_selected, width=150, height=35)
+delete_button.place(relx=0.83, rely=0.02)
+
+# محتوى النصوص والبيانات
+content_frame = ctk.CTkFrame(root, fg_color="#ffffff", corner_radius=15)
+content_frame.place(relx=0.02, rely=0.08, relwidth=0.96, relheight=0.9)
+
+# رسالة الترحيب (تختفي بعد التحميل)
+welcome_label = ctk.CTkLabel(content_frame, text="Click here to select DICOM files",
+                            text_color="blue", font=ctk.CTkFont(size=20, weight="bold"), cursor="hand2")
+welcome_label.pack(expand=True)
+def on_welcome_click(event):
+    read_dicom_files()
+welcome_label.bind("<Button-1>", on_welcome_click)
 
 root.mainloop()
