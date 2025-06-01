@@ -1,0 +1,6 @@
+MSH|^~\&|CTApp|Hospital|PACS|Hospital|20230503||ORU^R01|MSG00001|P|2.3
+PID|||AHMED SAYED TANTAWY|||M||
+OBR|||102441^102441|||CT
+OBX|1|NM|CTDIvol||55.4|mGy|||
+OBX|2|NM|DLP||0.0|mGy*cm|||
+OBX|3|NM|EffectiveDose||0.78|mSv|||

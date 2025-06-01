@@ -95,6 +95,8 @@ def read_dicom_files():
     all_data.extend(temp_cases.values())
     display_text_data()
 
+from datetime import timedelta
+
 def display_text_data():
     for widget in content_frame.winfo_children():
         widget.destroy()
@@ -109,6 +111,7 @@ def display_text_data():
         if match_name and match_date:
             filtered.append(data)
 
+    # جمع بيانات المرضى حسب الاسم
     patient_records = {}
     for data in all_data:
         name = data["Name"]
@@ -118,60 +121,52 @@ def display_text_data():
             patient_records[name] = []
         patient_records[name].append((date, dose))
 
-    # حساب الجرعة التراكمية حسب المطلوب
+    # حساب الجرعة التراكمية لكل مريض (تجميع تدريجي)
     accumulated_dose_dict = {}
     for name in patient_records:
-        records = sorted(patient_records[name], key=lambda x: x[0])
-        for i, (current_date, current_dose) in enumerate(records):
-            if i == 0:
-                accumulated_dose_dict[(name, current_date)] = 0
-            else:
-                previous_dose = records[i - 1][1]
-                accumulated_dose_dict[(name, current_date)] = round(current_dose + previous_dose, 2)
+        records = patient_records[name]
+        records.sort(key=lambda x: x[0])  # ترتيب حسب التاريخ
+        total_dose = 0
+        for date, dose in records:
+            total_dose += dose
+            accumulated_dose_dict[(name, date)] = round(total_dose, 2)
 
-    # حساب الجرعة السنوية حسب فترة 365 يوم من أول فحص مع تحديد عرض الجرعة فقط عند آخر يوم في السنة
-    yearly_dose_per_date = {}
+    # حساب الجرعة السنوية لكل فترة 365 يوم منفصلة لكل مريض
+    dose_per_year_dict = {}
+
     for name in patient_records:
         records = sorted(patient_records[name], key=lambda x: x[0])
         if not records:
             continue
+        
+        # لو أول فحص (أول تاريخ) نحط صفر
+        first_date = records[0][0]
 
-        start_date = records[0][0]
-        year_start = start_date
-        year_end = year_start + timedelta(days=365)
-        year_dose = 0
-        last_date_in_year = None
+        for current_date, _ in records:
+            # لو الفحص هو الأول نرجع صفر
+            if current_date == first_date:
+                dose_per_year_dict[(name, current_date)] = 0.0
+                continue
+            
+            # نحسب الفترة 364 يوم قبل التاريخ الحالي (شامل التاريخ)
+            start_date = current_date - timedelta(days=364)
 
-        for date, dose in records:
-            if date < year_end:
-                year_dose += dose
-                last_date_in_year = date
-            else:
-                # تخزين الجرعة عند آخر يوم في السنة السابقة
-                yearly_dose_per_date[(name, last_date_in_year)] = round(year_dose, 2)
+            # نجمّع جرعات الأشعات في الفترة (start_date إلى current_date)
+            total_dose_year = 0.0
+            for date, dose in records:
+                if start_date <= date <= current_date:
+                    total_dose_year += dose
+            
+            dose_per_year_dict[(name, current_date)] = round(total_dose_year, 2)
 
-                # بداية سنة جديدة
-                year_start = year_end
-                year_end = year_start + timedelta(days=365)
-                year_dose = dose
-                last_date_in_year = date
-
-        # تخزين الجرعة للسنة الأخيرة عند آخر يوم فيها
-        yearly_dose_per_date[(name, last_date_in_year)] = round(year_dose, 2)
-
-        # لكل تاريخ قبل نهاية السنة اللي مش آخر يوم نحدد صفر (لإن الجرعة السنوية تظهر بس في آخر يوم)
-        for date, dose in records:
-            if (name, date) not in yearly_dose_per_date:
-                yearly_dose_per_date[(name, date)] = 0
-
-    # ترتيب البيانات حسب الخيار
+        # ترتيب البيانات حسب اختيار المستخدم
     sort_option = sort_var.get()
     sorted_data = sorted(filtered, key=lambda x: x[sort_option] if sort_option != "Name" else x["Name"].lower())
 
     scroll_frame = ctk.CTkScrollableFrame(content_frame, corner_radius=10, fg_color="#ffffff")
     scroll_frame.pack(fill="both", expand=True, padx=20, pady=10)
 
-    headers = ["Select", "Patient Name", "Study ID", "Date", "Modality", "Dose (mSv)", "Total Accumulated Dose", "Latest Year Dose"]
+    headers = ["Select", "Patient Name", "Study ID", "Date", "Modality", "Dose (mSv)", "Total Accumulated Dose", "Dose Per Year"]
     for col, header in enumerate(headers):
         lbl = ctk.CTkLabel(scroll_frame, text=header, font=ctk.CTkFont(size=14, weight="bold"))
         lbl.grid(row=0, column=col, padx=10, pady=10, sticky="w")
@@ -182,7 +177,7 @@ def display_text_data():
         date = data["Date"]
 
         accumulated_dose = accumulated_dose_dict.get((name, date), 0)
-        latest_year_dose = yearly_dose_per_date.get((name, date), 0)
+        dose_per_year = dose_per_year_dict.get((name, date), 0)
 
         var = ctk.BooleanVar(value=data in selected_cases)
         check_vars.append((var, data))
@@ -195,7 +190,7 @@ def display_text_data():
         ctk.CTkLabel(scroll_frame, text=data["Modality"]).grid(row=row, column=4, padx=10, pady=5, sticky="w")
         ctk.CTkLabel(scroll_frame, text=f"{data['mSv']:.2f}").grid(row=row, column=5, padx=10, pady=5, sticky="w")
         ctk.CTkLabel(scroll_frame, text=f"{accumulated_dose:.2f}").grid(row=row, column=6, padx=10, pady=5, sticky="w")
-        ctk.CTkLabel(scroll_frame, text=f"{latest_year_dose:.2f}").grid(row=row, column=7, padx=10, pady=5, sticky="w")
+        ctk.CTkLabel(scroll_frame, text=f"{dose_per_year:.2f}").grid(row=row, column=7, padx=10, pady=5, sticky="w")
 def update_selected_cases():
     selected_cases.clear()
     for var, data in check_vars:
@@ -233,22 +228,31 @@ def show_selected_cases():
     top.geometry("1100x700")
     top.lift()
 
+    rows = 2 if len(selected_cases) == 4 else 1
+    cols = 2
+
     for idx, data in enumerate(selected_cases):
         row = idx // 2
         col = idx % 2
 
-        frame = ctk.CTkFrame(top, fg_color="#f0f0f0", corner_radius=10)
-        frame.grid(row=row, column=col, padx=20, pady=20, sticky="nsew")
+        frame = ctk.CTkFrame(top, fg_color="#f9f9f9", corner_radius=15, border_width=1, border_color="#ccc")
+        frame.grid(row=row, column=col, padx=15, pady=15, sticky="nsew")
 
+        # نسمح للـ frame يتمدد عمودياً وأفقياً
+        frame.grid_rowconfigure(0, weight=3)
+        frame.grid_rowconfigure(1, weight=2)
+        frame.grid_columnconfigure(0, weight=1)
+
+        # تحجيم الصورة ديناميكي حسب حجم الـ frame
         if data["Image"]:
+            # نستخدم Label بدون تعيين حجم ثابت، عشان الصورة تتغير مع حجم الـ frame تلقائي
             img_label = ctk.CTkLabel(frame, image=data["Image"], text="")
-            img_label.image = data["Image"]
-            img_label.pack(pady=10)
+            img_label.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
 
         info = (
             f"👤 Name: {data['Name']}\n"
             f"🆔 ID: {data['StudyID']}\n"
-            f"📅 Date: {data['Date'].date()}\n"
+            f"📅 Date: {data['Date'].strftime('%Y-%m-%d')}\n"
             f"🧬 Type: {data['Modality']}\n"
             f"☢ Dose: {data['mSv']:.2f} mSv\n"
             f"🧪 CTDIvol: {data['CTDIvol']} mGy\n"
@@ -256,11 +260,15 @@ def show_selected_cases():
             f"⚧ Sex: {data['Sex']}\n"
             f"🎂 DOB: {data['DOB']}"
         )
-        ctk.CTkLabel(frame, text=info, justify="left").pack(pady=10)
 
-    for i in range(2):
-        top.grid_columnconfigure(i, weight=1)
-        top.grid_rowconfigure(i, weight=1)
+        info_label = ctk.CTkLabel(frame, text=info, justify="left", anchor="nw", font=ctk.CTkFont(size=14))
+        info_label.grid(row=1, column=0, sticky="nsew", padx=20, pady=(5, 20))
+
+    # توزيع الصفوف والأعمدة في الـ Toplevel لتمدد تلقائي
+    for r in range(rows):
+        top.grid_rowconfigure(r, weight=1)
+    for c in range(cols):
+        top.grid_columnconfigure(c, weight=1)
 
 def delete_selected():
     update_selected_cases()

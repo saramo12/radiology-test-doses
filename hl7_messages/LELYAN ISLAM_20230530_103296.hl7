@@ -1,0 +1,6 @@
+MSH|^~\&|CTApp|Hospital|PACS|Hospital|20230530||ORU^R01|MSG00001|P|2.3
+PID|||LELYAN ISLAM|||M||
+OBR|||103296^103296|||CT
+OBX|1|NM|CTDIvol||28.9|mGy|||
+OBX|2|NM|DLP||0.0|mGy*cm|||
+OBX|3|NM|EffectiveDose||0.40|mSv|||

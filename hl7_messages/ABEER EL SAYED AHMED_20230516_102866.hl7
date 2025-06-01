@@ -1,0 +1,6 @@
+MSH|^~\&|CTApp|Hospital|PACS|Hospital|20230516||ORU^R01|MSG00001|P|2.3
+PID|||ABEER EL SAYED AHMED|||F||
+OBR|||102866^102866|||CT
+OBX|1|NM|CTDIvol||44.4|mGy|||
+OBX|2|NM|DLP||0.0|mGy*cm|||
+OBX|3|NM|EffectiveDose||0.62|mSv|||
