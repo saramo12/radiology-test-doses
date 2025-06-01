@@ -4,6 +4,7 @@ from PIL import Image, ImageTk
 import pydicom
 import os
 from datetime import datetime
+from datetime import datetime, timedelta
 
 ctk.set_appearance_mode("light")
 ctk.set_default_color_theme("dark-blue")
@@ -109,48 +110,74 @@ def display_text_data():
             filtered.append(data)
 
     dose_accumulated = {}
-    doses_per_year = {}
+    doses_per_year_real = {}
 
+    # حساب الجرعة الكلية + الجرعة لكل سنة زمنية حقيقية لكل مريض
     for data in all_data:
         name = data["Name"]
         dose = data["mSv"]
-        year = data["Date"].year
+        date = data["Date"]
+
         dose_accumulated[name] = dose_accumulated.get(name, 0) + dose
-        doses_per_year[(name, year)] = doses_per_year.get((name, year), 0) + dose
 
-    dose_per_year_avg = {}
-    for name in dose_accumulated:
-        years = [y for (n, y) in doses_per_year if n == name]
-        if years:
-            dose_per_year_avg[name] = dose_accumulated[name] / len(set(years))
-        else:
-            dose_per_year_avg[name] = 0
+        if name not in doses_per_year_real:
+            doses_per_year_real[name] = []
 
+        doses_per_year_real[name].append((date, dose))
+
+    # توزيع الجرعات حسب سنوات حقيقية (كل سنة تبدأ من أول فحص)
+    dose_per_year_real = {}
+    for name in doses_per_year_real:
+        records = sorted(doses_per_year_real[name], key=lambda x: x[0])  # sort by date
+        if not records:
+            continue
+
+        start_date = records[0][0]
+        year_index = 1
+        current_start = start_date
+        current_end = current_start + timedelta(days=365)
+        dose_per_year_real[name] = {}
+
+        for date, dose in records:
+            while date >= current_end:
+                year_index += 1
+                current_start = current_end
+                current_end = current_start + timedelta(days=365)
+
+            if year_index not in dose_per_year_real[name]:
+                dose_per_year_real[name][year_index] = 0
+            dose_per_year_real[name][year_index] += dose
+
+    # إعداد البيانات للعرض
     sort_option = sort_var.get()
     sorted_data = sorted(filtered, key=lambda x: x[sort_option] if sort_option != "Name" else x["Name"].lower())
 
     scroll_frame = ctk.CTkScrollableFrame(content_frame, corner_radius=10, fg_color="#ffffff")
     scroll_frame.pack(fill="both", expand=True, padx=20, pady=10)
 
-    headers = ["Select", "Patient Name", "Study ID", "Date", "Modality", "Dose (mSv)", "Total Accumulated Dose", "Dose/Year"]
+    headers = ["Select", "Patient Name", "Study ID", "Date", "Modality", "Dose (mSv)", "Total Accumulated Dose", "Latest Year Dose"]
     for col, header in enumerate(headers):
         lbl = ctk.CTkLabel(scroll_frame, text=header, font=ctk.CTkFont(size=14, weight="bold"))
         lbl.grid(row=0, column=col, padx=10, pady=10, sticky="w")
 
     check_vars.clear()
     for row, data in enumerate(sorted_data, start=1):
+        name = data["Name"]
+        latest_year = max(dose_per_year_real.get(name, {}).keys(), default=None)
+        latest_year_dose = dose_per_year_real.get(name, {}).get(latest_year, 0)
+
         var = ctk.BooleanVar(value=data in selected_cases)
         check_vars.append((var, data))
         chk = ctk.CTkCheckBox(scroll_frame, variable=var)
         chk.grid(row=row, column=0, padx=10, pady=5, sticky="w")
 
-        ctk.CTkLabel(scroll_frame, text=data["Name"]).grid(row=row, column=1, padx=10, pady=5, sticky="w")
+        ctk.CTkLabel(scroll_frame, text=name).grid(row=row, column=1, padx=10, pady=5, sticky="w")
         ctk.CTkLabel(scroll_frame, text=str(data["StudyID"])).grid(row=row, column=2, padx=10, pady=5, sticky="w")
         ctk.CTkLabel(scroll_frame, text=data["Date"].strftime("%Y-%m-%d")).grid(row=row, column=3, padx=10, pady=5, sticky="w")
         ctk.CTkLabel(scroll_frame, text=data["Modality"]).grid(row=row, column=4, padx=10, pady=5, sticky="w")
         ctk.CTkLabel(scroll_frame, text=f"{data['mSv']:.2f}").grid(row=row, column=5, padx=10, pady=5, sticky="w")
-        ctk.CTkLabel(scroll_frame, text=f"{dose_accumulated.get(data['Name'], 0):.2f}").grid(row=row, column=6, padx=10, pady=5, sticky="w")
-        ctk.CTkLabel(scroll_frame, text=f"{dose_per_year_avg.get(data['Name'], 0):.2f}").grid(row=row, column=7, padx=10, pady=5, sticky="w")
+        ctk.CTkLabel(scroll_frame, text=f"{dose_accumulated.get(name, 0):.2f}").grid(row=row, column=6, padx=10, pady=5, sticky="w")
+        ctk.CTkLabel(scroll_frame, text=f"{latest_year_dose:.2f}").grid(row=row, column=7, padx=10, pady=5, sticky="w")
 
 def update_selected_cases():
     selected_cases.clear()
@@ -241,6 +268,8 @@ def resize_bg(event):
 root = ctk.CTk()
 root.title("DICOM Viewer - Responsive Design")
 root.geometry("1300x900")
+root.configure(bg="white")  # خلفية بيضاء
+
 
 bg_img_orig = Image.open("g.jpg")
 bg_img_resized = ImageTk.PhotoImage(bg_img_orig)
@@ -259,17 +288,29 @@ sort_var = ctk.StringVar(value="Name")
 ctk.CTkLabel(root, text="Sort by:").place(relx=0.73, rely=0.015)
 ctk.CTkOptionMenu(root, variable=sort_var, values=["Name", "Date"], command=lambda _: display_text_data()).place(relx=0.78, rely=0.015)
 
+# فلتر الاسم
+name_filter_label = ctk.CTkLabel(root, text="Name:", fg_color="white", bg_color="white", text_color="black")
+name_filter_label.place(relx=0.005, rely=0.07)
+
 name_filter_var = ctk.StringVar()
-ctk.CTkEntry(root, placeholder_text="Filter by Name", textvariable=name_filter_var).place(relx=0.02, rely=0.07, relwidth=0.2)
+ctk.CTkEntry(root, placeholder_text="Filter by Name", textvariable=name_filter_var).place(relx=0.05, rely=0.07, relwidth=0.17)
 name_filter_var.trace_add("write", lambda *args: display_text_data())
 
-date_filter_var = ctk.StringVar()
-ctk.CTkEntry(root, placeholder_text="Filter by Date (YYYY-MM-DD)", textvariable=date_filter_var).place(relx=0.24, rely=0.07, relwidth=0.2)
-date_filter_var.trace_add("write", lambda *args: display_text_data())
+# فلتر التاريخ
+date_filter_label = ctk.CTkLabel(root, text="Date:", fg_color="white", bg_color="white", text_color="black")
+date_filter_label.place(relx=0.250, rely=0.07)
 
+date_filter_var = ctk.StringVar()
+ctk.CTkEntry(root, placeholder_text="Filter by Date (YYYY-MM-DD)", textvariable=date_filter_var).place(relx=0.300, rely=0.07, relwidth=0.18)
+date_filter_var.trace_add("write", lambda *args: display_text_data())
 # محتوى البيانات
-content_frame = ctk.CTkFrame(root, fg_color="#ffffff", corner_radius=15)
-content_frame.place(relx=0.02, rely=0.13, relwidth=0.96, relheight=0.85)
+# shadow frame (أسود فاتح كخلفية خفيفة)
+shadow_frame = ctk.CTkFrame(root, fg_color="#416dcc", corner_radius=12)
+shadow_frame.place(relx=0.10, rely=0.15, relwidth=0.80, relheight=0.70)
+
+# frame الأساسي فوق الـ shadow
+content_frame = ctk.CTkFrame(root, fg_color="#ffffff", corner_radius=10)
+content_frame.place(relx=0.11, rely=0.16, relwidth=0.78, relheight=0.68)
 
 # رسالة ترحيبية
 welcome_label = ctk.CTkLabel(content_frame, text="Click here to select DICOM files",
