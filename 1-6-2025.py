@@ -118,7 +118,7 @@ def display_text_data():
         dose = data["mSv"]
         date = data["Date"]
 
-        dose_accumulated[name] = dose_accumulated.get(name, 0) + dose
+        dose_accumulated[name] = round(dose_accumulated.get(name, 0) + dose, 2)
 
         if name not in doses_per_year_real:
             doses_per_year_real[name] = []
