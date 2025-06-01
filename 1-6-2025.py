@@ -109,46 +109,62 @@ def display_text_data():
         if match_name and match_date:
             filtered.append(data)
 
-    dose_accumulated = {}
-    doses_per_year_real = {}
-
-    # حساب الجرعة الكلية + الجرعة لكل سنة زمنية حقيقية لكل مريض
+    patient_records = {}
     for data in all_data:
         name = data["Name"]
         dose = data["mSv"]
         date = data["Date"]
+        if name not in patient_records:
+            patient_records[name] = []
+        patient_records[name].append((date, dose))
 
-        dose_accumulated[name] = round(dose_accumulated.get(name, 0) + dose, 2)
+    # حساب الجرعة التراكمية حسب المطلوب
+    accumulated_dose_dict = {}
+    for name in patient_records:
+        records = sorted(patient_records[name], key=lambda x: x[0])
+        for i, (current_date, current_dose) in enumerate(records):
+            if i == 0:
+                accumulated_dose_dict[(name, current_date)] = 0
+            else:
+                previous_dose = records[i - 1][1]
+                accumulated_dose_dict[(name, current_date)] = round(current_dose + previous_dose, 2)
 
-        if name not in doses_per_year_real:
-            doses_per_year_real[name] = []
-
-        doses_per_year_real[name].append((date, dose))
-
-    # توزيع الجرعات حسب سنوات حقيقية (كل سنة تبدأ من أول فحص)
-    dose_per_year_real = {}
-    for name in doses_per_year_real:
-        records = sorted(doses_per_year_real[name], key=lambda x: x[0])  # sort by date
+    # حساب الجرعة السنوية حسب فترة 365 يوم من أول فحص مع تحديد عرض الجرعة فقط عند آخر يوم في السنة
+    yearly_dose_per_date = {}
+    for name in patient_records:
+        records = sorted(patient_records[name], key=lambda x: x[0])
         if not records:
             continue
 
         start_date = records[0][0]
-        year_index = 1
-        current_start = start_date
-        current_end = current_start + timedelta(days=365)
-        dose_per_year_real[name] = {}
+        year_start = start_date
+        year_end = year_start + timedelta(days=365)
+        year_dose = 0
+        last_date_in_year = None
 
         for date, dose in records:
-            while date >= current_end:
-                year_index += 1
-                current_start = current_end
-                current_end = current_start + timedelta(days=365)
+            if date < year_end:
+                year_dose += dose
+                last_date_in_year = date
+            else:
+                # تخزين الجرعة عند آخر يوم في السنة السابقة
+                yearly_dose_per_date[(name, last_date_in_year)] = round(year_dose, 2)
 
-            if year_index not in dose_per_year_real[name]:
-                dose_per_year_real[name][year_index] = 0
-            dose_per_year_real[name][year_index] += dose
+                # بداية سنة جديدة
+                year_start = year_end
+                year_end = year_start + timedelta(days=365)
+                year_dose = dose
+                last_date_in_year = date
 
-    # إعداد البيانات للعرض
+        # تخزين الجرعة للسنة الأخيرة عند آخر يوم فيها
+        yearly_dose_per_date[(name, last_date_in_year)] = round(year_dose, 2)
+
+        # لكل تاريخ قبل نهاية السنة اللي مش آخر يوم نحدد صفر (لإن الجرعة السنوية تظهر بس في آخر يوم)
+        for date, dose in records:
+            if (name, date) not in yearly_dose_per_date:
+                yearly_dose_per_date[(name, date)] = 0
+
+    # ترتيب البيانات حسب الخيار
     sort_option = sort_var.get()
     sorted_data = sorted(filtered, key=lambda x: x[sort_option] if sort_option != "Name" else x["Name"].lower())
 
@@ -163,8 +179,10 @@ def display_text_data():
     check_vars.clear()
     for row, data in enumerate(sorted_data, start=1):
         name = data["Name"]
-        latest_year = max(dose_per_year_real.get(name, {}).keys(), default=None)
-        latest_year_dose = dose_per_year_real.get(name, {}).get(latest_year, 0)
+        date = data["Date"]
+
+        accumulated_dose = accumulated_dose_dict.get((name, date), 0)
+        latest_year_dose = yearly_dose_per_date.get((name, date), 0)
 
         var = ctk.BooleanVar(value=data in selected_cases)
         check_vars.append((var, data))
@@ -173,12 +191,11 @@ def display_text_data():
 
         ctk.CTkLabel(scroll_frame, text=name).grid(row=row, column=1, padx=10, pady=5, sticky="w")
         ctk.CTkLabel(scroll_frame, text=str(data["StudyID"])).grid(row=row, column=2, padx=10, pady=5, sticky="w")
-        ctk.CTkLabel(scroll_frame, text=data["Date"].strftime("%Y-%m-%d")).grid(row=row, column=3, padx=10, pady=5, sticky="w")
+        ctk.CTkLabel(scroll_frame, text=date.strftime("%Y-%m-%d")).grid(row=row, column=3, padx=10, pady=5, sticky="w")
         ctk.CTkLabel(scroll_frame, text=data["Modality"]).grid(row=row, column=4, padx=10, pady=5, sticky="w")
         ctk.CTkLabel(scroll_frame, text=f"{data['mSv']:.2f}").grid(row=row, column=5, padx=10, pady=5, sticky="w")
-        ctk.CTkLabel(scroll_frame, text=f"{dose_accumulated.get(name, 0):.2f}").grid(row=row, column=6, padx=10, pady=5, sticky="w")
+        ctk.CTkLabel(scroll_frame, text=f"{accumulated_dose:.2f}").grid(row=row, column=6, padx=10, pady=5, sticky="w")
         ctk.CTkLabel(scroll_frame, text=f"{latest_year_dose:.2f}").grid(row=row, column=7, padx=10, pady=5, sticky="w")
-
 def update_selected_cases():
     selected_cases.clear()
     for var, data in check_vars:
