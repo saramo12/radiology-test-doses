@@ -410,10 +410,10 @@ def delete_selected():
         return
 
     # طلب التأكيد بكتابة كلمة المرور مجددًا
-    confirm_pass = simpledialog.askstring("Confirm Delete", "To confirm deletion, please type password again:", show='*')
+    confirm_pass = simpledialog.askstring("Confirm Delete", "To confirm deletion, please type password again:", show='*', parent=root)
     if confirm_pass != "admin123":
-        messagebox.showerror("Unauthorized", "Password confirmation failed.")
-        return
+            messagebox.showerror("Unauthorized", "Password confirmation failed.", parent=root)
+    return
 
     # رسالة تأكيد نهائية
     confirm = messagebox.askyesno("Confirm Delete", f"Are you sure you want to delete {len(selected_cases)} selected case(s)? This action cannot be undone.")
