@@ -1,0 +1,6 @@
+MSH|^~\&|CTApp|Hospital|PACS|Hospital|20220227||ORU^R01|MSG00001|P|2.3
+PID|||MAGDA A.ELSALAM 52Y|||F||
+OBR|||244121^244121|||CT
+OBX|1|NM|CTDIvol||40.2|mGy|||
+OBX|2|NM|DLP||0.0|mGy*cm|||
+OBX|3|NM|EffectiveDose||0.56|mSv|||

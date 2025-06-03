@@ -1,0 +1,6 @@
+MSH|^~\&|CTApp|Hospital|PACS|Hospital|20220216||ORU^R01|MSG00001|P|2.3
+PID|||REDA A.ELFATAH ELSAYED|||M||
+OBR|||91302^91302|||CT
+OBX|1|NM|CTDIvol||30.2|mGy|||
+OBX|2|NM|DLP||0.0|mGy*cm|||
+OBX|3|NM|EffectiveDose||0.42|mSv|||

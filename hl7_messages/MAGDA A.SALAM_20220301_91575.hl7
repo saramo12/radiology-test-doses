@@ -1,0 +1,6 @@
+MSH|^~\&|CTApp|Hospital|PACS|Hospital|20220301||ORU^R01|MSG00001|P|2.3
+PID|||MAGDA A.SALAM|||||
+OBR|||91575^91575|||CT
+OBX|1|NM|CTDIvol||54.4|mGy|||
+OBX|2|NM|DLP||0.0|mGy*cm|||
+OBX|3|NM|EffectiveDose||0.76|mSv|||

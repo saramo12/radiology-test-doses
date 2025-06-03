@@ -1,0 +1,6 @@
+MSH|^~\&|CTApp|Hospital|PACS|Hospital|20221111||ORU^R01|MSG00001|P|2.3
+PID|||SABHA MANSOUR|||F||
+OBR|||97766^97766|||CT
+OBX|1|NM|CTDIvol||52.1|mGy|||
+OBX|2|NM|DLP||0.0|mGy*cm|||
+OBX|3|NM|EffectiveDose||0.73|mSv|||
