@@ -365,41 +365,16 @@ def show_selected_cases():
         frame = ctk.CTkFrame(top, fg_color="#f9f9f9", corner_radius=15, border_width=1, border_color="#ccc")
         frame.grid(row=row, column=col, padx=15, pady=15, sticky="nsew")
 
+        # نسمح للـ frame يتمدد عمودياً وأفقياً
         frame.grid_rowconfigure(0, weight=3)
         frame.grid_rowconfigure(1, weight=2)
         frame.grid_columnconfigure(0, weight=1)
 
-        images = data.get("Images", [])
-        current_index = [0]  # استخدم قائمة لتكون قابلة للتعديل داخل الوظائف الداخلية
-
-        def update_image(label, img_list, index_list, container):
-            if not img_list:
-                return
-            pil_image = img_list[index_list[0]].copy()
-            # تحجيم الصورة حسب حجم الفريم
-            container_width = container.winfo_width()
-            container_height = int(container.winfo_height() * 0.7)
-            pil_image = pil_image.resize((container_width, container_height), Image.ANTIALIAS)
-            tk_img = ImageTk.PhotoImage(pil_image)
-            label.configure(image=tk_img)
-            label.image = tk_img
-
-        img_label = ctk.CTkLabel(frame, text="")
-        img_label.grid(row=0, column=0, columnspan=3, sticky="nsew", padx=10, pady=10)
-
-        # أزرار تنقّل
-        def next_image():
-            current_index[0] = (current_index[0] + 1) % len(images)
-            update_image(img_label, images, current_index, frame)
-
-        def prev_image():
-            current_index[0] = (current_index[0] - 1) % len(images)
-            update_image(img_label, images, current_index, frame)
-
-        btn_prev = ctk.CTkButton(frame, text="⏪", width=40, command=prev_image)
-        btn_next = ctk.CTkButton(frame, text="⏩", width=40, command=next_image)
-        btn_prev.grid(row=1, column=0, sticky="w", padx=15)
-        btn_next.grid(row=1, column=2, sticky="e", padx=15)
+        # تحجيم الصورة ديناميكي حسب حجم الـ frame
+        if data["Image"]:
+            # نستخدم Label بدون تعيين حجم ثابت، عشان الصورة تتغير مع حجم الـ frame تلقائي
+            img_label = ctk.CTkLabel(frame, image=data["Image"], text="")
+            img_label.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
 
         info = (
             f"👤 Name: {data['Name']}\n"
@@ -412,15 +387,16 @@ def show_selected_cases():
             f"⚧ Sex: {data['Sex']}\n"
             f"🎂 DOB: {data['DOB']}"
         )
+
         info_label = ctk.CTkLabel(frame, text=info, justify="left", anchor="nw", font=ctk.CTkFont(size=14))
-        info_label.grid(row=2, column=0, columnspan=3, sticky="nsew", padx=20, pady=(5, 20))
+        info_label.grid(row=1, column=0, sticky="nsew", padx=20, pady=(5, 20))
 
-        frame.bind("<Configure>", lambda event, lbl=img_label, imgs=images, idx=current_index, fr=frame: update_image(lbl, imgs, idx, fr))
-
+    # توزيع الصفوف والأعمدة في الـ Toplevel لتمدد تلقائي
     for r in range(rows):
         top.grid_rowconfigure(r, weight=1)
     for c in range(cols):
         top.grid_columnconfigure(c, weight=1)
+
 def delete_selected():
     update_selected_cases()
     if not selected_cases:
