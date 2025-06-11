@@ -1,0 +1,6 @@
+MSH|^~\&|CTApp|Hospital|PACS|Hospital|20221208||ORU^R01|MSG00001|P|2.3
+PID|||SALAH MOHAMED|||||
+OBR|||98779^98779|||CT
+OBX|1|NM|CTDIvol||89.4|mGy|||
+OBX|2|NM|DLP||0.0|mGy*cm|||
+OBX|3|NM|EffectiveDose||1.25|mSv|||
