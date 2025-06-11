@@ -1,0 +1,6 @@
+MSH|^~\&|CTApp|Hospital|PACS|Hospital|20230125||ORU^R01|MSG00001|P|2.3
+PID|||SHAWKYA SOLIMAN MOHAMED|||F||
+OBR|||99771^99771|||CT
+OBX|1|NM|CTDIvol||36.2|mGy|||
+OBX|2|NM|DLP||0.0|mGy*cm|||
+OBX|3|NM|EffectiveDose||0.51|mSv|||

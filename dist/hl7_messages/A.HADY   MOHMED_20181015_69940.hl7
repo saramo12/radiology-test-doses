@@ -1,0 +1,6 @@
+MSH|^~\&|CTApp|Hospital|PACS|Hospital|20181015||ORU^R01|MSG00001|P|2.3
+PID|||A.HADY   MOHMED|||M||
+OBR|||69940^69940|||CT
+OBX|1|NM|CTDIvol||30.2|mGy|||
+OBX|2|NM|DLP||0.0|mGy*cm|||
+OBX|3|NM|EffectiveDose||0.42|mSv|||

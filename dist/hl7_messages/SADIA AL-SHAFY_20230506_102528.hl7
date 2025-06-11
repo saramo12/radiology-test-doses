@@ -1,0 +1,6 @@
+MSH|^~\&|CTApp|Hospital|PACS|Hospital|20230506||ORU^R01|MSG00001|P|2.3
+PID|||SADIA AL-SHAFY|||F||
+OBR|||102528^102528|||CT
+OBX|1|NM|CTDIvol||60.5|mGy|||
+OBX|2|NM|DLP||0.0|mGy*cm|||
+OBX|3|NM|EffectiveDose||0.85|mSv|||

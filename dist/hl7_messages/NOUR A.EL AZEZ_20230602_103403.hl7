@@ -1,0 +1,6 @@
+MSH|^~\&|CTApp|Hospital|PACS|Hospital|20230602||ORU^R01|MSG00001|P|2.3
+PID|||NOUR A.EL AZEZ|||F||
+OBR|||103403^103403|||CT
+OBX|1|NM|CTDIvol||53.6|mGy|||
+OBX|2|NM|DLP||0.0|mGy*cm|||
+OBX|3|NM|EffectiveDose||0.75|mSv|||

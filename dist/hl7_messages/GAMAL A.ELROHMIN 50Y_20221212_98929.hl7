@@ -1,0 +1,6 @@
+MSH|^~\&|CTApp|Hospital|PACS|Hospital|20221212||ORU^R01|MSG00001|P|2.3
+PID|||GAMAL A.ELROHMIN 50Y|||M||
+OBR|||98929^98929|||CT
+OBX|1|NM|CTDIvol||53.6|mGy|||
+OBX|2|NM|DLP||0.0|mGy*cm|||
+OBX|3|NM|EffectiveDose||0.75|mSv|||

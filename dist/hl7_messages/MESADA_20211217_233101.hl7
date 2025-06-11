@@ -1,0 +1,6 @@
+MSH|^~\&|CTApp|Hospital|PACS|Hospital|20211217||ORU^R01|MSG00001|P|2.3
+PID|||MESADA|||F||
+OBR|||233101^233101|||CT
+OBX|1|NM|CTDIvol||40.2|mGy|||
+OBX|2|NM|DLP||0.0|mGy*cm|||
+OBX|3|NM|EffectiveDose||0.56|mSv|||

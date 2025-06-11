@@ -1,0 +1,6 @@
+MSH|^~\&|CTApp|Hospital|PACS|Hospital|20220214||ORU^R01|MSG00001|P|2.3
+PID|||REDA A.EL FATAH|||||
+OBR|||242348^242348|||CT
+OBX|1|NM|CTDIvol||41.4|mGy|||
+OBX|2|NM|DLP||0.0|mGy*cm|||
+OBX|3|NM|EffectiveDose||0.58|mSv|||

@@ -1,0 +1,6 @@
+MSH|^~\&|CTApp|Hospital|PACS|Hospital|20221117||ORU^R01|MSG00001|P|2.3
+PID|||IBRAHIM HASANIN|||||
+OBR|||97999^97999|||CT
+OBX|1|NM|CTDIvol||0.0|mGy|||
+OBX|2|NM|DLP||0.0|mGy*cm|||
+OBX|3|NM|EffectiveDose||0.00|mSv|||

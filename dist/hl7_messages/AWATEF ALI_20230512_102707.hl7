@@ -1,0 +1,6 @@
+MSH|^~\&|CTApp|Hospital|PACS|Hospital|20230512||ORU^R01|MSG00001|P|2.3
+PID|||AWATEF ALI|||F||
+OBR|||102707^102707|||CT
+OBX|1|NM|CTDIvol||0.0|mGy|||
+OBX|2|NM|DLP||0.0|mGy*cm|||
+OBX|3|NM|EffectiveDose||0.00|mSv|||
