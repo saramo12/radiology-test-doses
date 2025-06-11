@@ -1,0 +1,6 @@
+MSH|^~\&|CTApp|Hospital|PACS|Hospital|20230517||ORU^R01|MSG00001|P|2.3
+PID|||MONA A.ALHAMID|||||
+OBR|||102892^102892|||CT
+OBX|1|NM|CTDIvol||53.6|mGy|||
+OBX|2|NM|DLP||0.0|mGy*cm|||
+OBX|3|NM|EffectiveDose||0.75|mSv|||

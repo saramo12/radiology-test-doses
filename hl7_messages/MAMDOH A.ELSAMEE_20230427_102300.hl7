@@ -1,0 +1,6 @@
+MSH|^~\&|CTApp|Hospital|PACS|Hospital|20230427||ORU^R01|MSG00001|P|2.3
+PID|||MAMDOH A.ELSAMEE|||M||
+OBR|||102300^102300|||CT
+OBX|1|NM|CTDIvol||21.7|mGy|||
+OBX|2|NM|DLP||0.0|mGy*cm|||
+OBX|3|NM|EffectiveDose||0.30|mSv|||

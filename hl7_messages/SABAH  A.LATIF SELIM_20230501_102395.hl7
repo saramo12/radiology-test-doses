@@ -1,0 +1,6 @@
+MSH|^~\&|CTApp|Hospital|PACS|Hospital|20230501||ORU^R01|MSG00001|P|2.3
+PID|||SABAH  A.LATIF SELIM|||F||
+OBR|||102395^102395|||CT
+OBX|1|NM|CTDIvol||0.0|mGy|||
+OBX|2|NM|DLP||0.0|mGy*cm|||
+OBX|3|NM|EffectiveDose||0.00|mSv|||
