@@ -11,7 +11,7 @@ from rapidfuzz import fuzz  # أسرع من fuzzywuzzy ويمكنك استبدا
 
 ctk.set_appearance_mode("light")
 ctk.set_default_color_theme("dark-blue")
-
+os.makedirs("hl7_messages", exist_ok=True)
 CSV_FILE = "rad.csv"
 HL7_DIR = "hl7_messages"
 os.makedirs(HL7_DIR, exist_ok=True)
@@ -33,7 +33,7 @@ COMMON_VARIANTS = {
 
 
 
-def convert_to_hl7(ds, msv):
+def convert_to_hl7(ds, msv, accumulated_dose, dose_per_year):
     name = str(getattr(ds, "PatientName", "Unknown"))
     date = getattr(ds, "StudyDate", "00000000")
     ctdi = float(getattr(ds, "CTDIvol", 0))
@@ -48,7 +48,10 @@ PID|||{name}||{dob}|{gender}||
 OBR|||{study_id}^{accession}|||CT
 OBX|1|NM|CTDIvol||{ctdi}|mGy|||
 OBX|2|NM|DLP||{dlp}|mGy*cm|||
-OBX|3|NM|EffectiveDose||{msv:.2f}|mSv|||"""
+OBX|3|NM|EffectiveDose||{msv:.2f}|mSv|||
+OBX|4|NM|AccumulatedDose||{accumulated_dose:.2f}|mSv|||
+OBX|5|NM|DosePerYear||{dose_per_year:.2f}|mSv|||"""
+
 def normalize_name(name):
     name = re.sub(r"[^a-zA-Z ]", " ", name)
     name = re.sub(r"\s+", " ", name).strip().lower()
@@ -162,8 +165,16 @@ def process_dicom_files(files):
                     "Dataset": ds
                 }
                 temp_cases[key] = data_dict
+                accumulated_dose = accumulated_dose_dict.get((study_id, date), 0)
+                dose_per_year = dose_per_year_dict.get((study_id, date), 0)
 
-                hl7_msg = convert_to_hl7(ds, msv)
+                hl7_msg = convert_to_hl7(ds, msv, accumulated_dose, dose_per_year)
+                # احفظ الملف باسم مميز حسب الاسم والتاريخ أو StudyID
+                hl7_filename = f"{study_id}_{date.strftime('%Y%m%d')}.hl7"
+                hl7_path = os.path.join("hl7_messages", hl7_filename)
+
+                with open(hl7_path, "w") as f:
+                    f.write(hl7_msg)
                 hl7_filename = f"{HL7_DIR}/{name}_{date_obj.strftime('%Y%m%d')}_{data_dict['StudyID']}.hl7"
                 with open(hl7_filename, "w") as f:
                     f.write(hl7_msg)
