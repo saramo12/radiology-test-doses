@@ -165,10 +165,11 @@ def process_dicom_files(files):
                     "Dataset": ds
                 }
                 temp_cases[key] = data_dict
+                
+                hl7_msg = convert_to_hl7(ds, msv, accumulated_dose, dose_per_year)
                 accumulated_dose = accumulated_dose_dict.get((study_id, date), 0)
                 dose_per_year = dose_per_year_dict.get((study_id, date), 0)
 
-                hl7_msg = convert_to_hl7(ds, msv, accumulated_dose, dose_per_year)
                 # احفظ الملف باسم مميز حسب الاسم والتاريخ أو StudyID
                 hl7_filename = f"{study_id}_{date.strftime('%Y%m%d')}.hl7"
                 hl7_path = os.path.join("hl7_messages", hl7_filename)
