@@ -33,7 +33,7 @@ COMMON_VARIANTS = {
 
 
 
-def convert_to_hl7(ds, msv,dose_per_year,accumulated_dose):
+def convert_to_hl7(ds, msv):
     name = str(getattr(ds, "PatientName", "Unknown"))
     date = getattr(ds, "StudyDate", "00000000")
     ctdi = float(getattr(ds, "CTDIvol", 0))
@@ -48,10 +48,7 @@ PID|||{name}||{dob}|{gender}||
 OBR|||{study_id}^{accession}|||CT
 OBX|1|NM|CTDIvol||{ctdi}|mGy|||
 OBX|2|NM|DLP||{dlp}|mGy*cm|||
-OBX|3|NM|EffectiveDose||{msv:.2f}|mSv|||
-OBX|4|NM|DosePerYear||{dose_per_year:.2f}|mSv|||
-OBX|5|NM|AccumulatedDose||{accumulated_dose:.2f}|mSv|||"""
-
+OBX|3|NM|EffectiveDose||{msv:.2f}|mSv|||"""
 def normalize_name(name):
     name = re.sub(r"[^a-zA-Z ]", " ", name)
     name = re.sub(r"\s+", " ", name).strip().lower()
@@ -166,7 +163,7 @@ def process_dicom_files(files):
                 }
                 temp_cases[key] = data_dict
 
-                hl7_msg = convert_to_hl7(ds, msv,dose_per_year,accumulated_dose)
+                hl7_msg = convert_to_hl7(ds, msv)
                 hl7_filename = f"{HL7_DIR}/{name}_{date_obj.strftime('%Y%m%d')}_{data_dict['StudyID']}.hl7"
                 with open(hl7_filename, "w") as f:
                     f.write(hl7_msg)
