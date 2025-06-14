@@ -33,7 +33,7 @@ COMMON_VARIANTS = {
 
 
 
-def convert_to_hl7(ds, msv):
+def convert_to_hl7(ds, msv,dose_per_year,accumulated_dose):
     name = str(getattr(ds, "PatientName", "Unknown"))
     date = getattr(ds, "StudyDate", "00000000")
     ctdi = float(getattr(ds, "CTDIvol", 0))
@@ -48,7 +48,10 @@ PID|||{name}||{dob}|{gender}||
 OBR|||{study_id}^{accession}|||CT
 OBX|1|NM|CTDIvol||{ctdi}|mGy|||
 OBX|2|NM|DLP||{dlp}|mGy*cm|||
-OBX|3|NM|EffectiveDose||{msv:.2f}|mSv|||"""
+OBX|3|NM|EffectiveDose||{msv:.2f}|mSv|||
+OBX|4|NM|DosePerYear||{dose_per_year:.2f}|mSv|||
+OBX|4|NM|AccumulatedDose||{accumulated_dose:.2f}|mSv|||"""
+
 def normalize_name(name):
     name = re.sub(r"[^a-zA-Z ]", " ", name)
     name = re.sub(r"\s+", " ", name).strip().lower()
