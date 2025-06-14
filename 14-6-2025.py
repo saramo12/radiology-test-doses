@@ -164,8 +164,8 @@ def process_dicom_files(files):
                 temp_cases[key] = data_dict
 
                 hl7_msg = convert_to_hl7(ds, msv,accumulated_dose,dose_per_year)
-                study_id = date["StudyID"]
-                date = date["Date"]
+                study_id = data["StudyID"]
+                date = data["Date"]
                 patient_records = {}
                 for data in all_data:
                     study_id = data["StudyID"]
