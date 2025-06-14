@@ -163,7 +163,51 @@ def process_dicom_files(files):
                 }
                 temp_cases[key] = data_dict
 
-                hl7_msg = convert_to_hl7(ds, msv)
+                hl7_msg = convert_to_hl7(ds, msv,accumulated_dose,dose_per_year)
+                study_id = date["StudyID"]
+                date = date["Date"]
+                patient_records = {}
+                for data in all_data:
+                    study_id = data["StudyID"]
+                    dose = data["mSv"]
+                    date = data["Date"]
+                    if study_id not in patient_records:
+                        patient_records[study_id] = []
+                    patient_records[study_id].append((date, dose))
+                accumulated_dose_dict = {}
+                for study_id in patient_records:
+                        records = patient_records[study_id]
+                        records.sort(key=lambda x: x[0])  # ترتيب حسب التاريخ
+                        total_dose = 0
+                        for date, dose in records:
+                            total_dose += dose
+                            accumulated_dose_dict[(study_id, date)] = round(total_dose, 2)
+
+                        # حساب الجرعة السنوية لكل فترة 365 يوم منفصلة لكل مريض
+                dose_per_year_dict = {}
+
+                for study_id in patient_records:
+                        records = sorted(patient_records[study_id], key=lambda x: x[0])
+                        if not records:
+                            continue
+
+                        first_date = records[0][0]
+
+                        for current_date, _ in records:
+                            if current_date == first_date:
+                                dose_per_year_dict[(study_id, current_date)] = 0.0
+                                continue
+
+                            start_date = current_date - timedelta(days=364)
+                            total_dose_year = 0.0
+                            for date, dose in records:
+                                if start_date <= date <= current_date:
+                                    total_dose_year += dose
+
+                            dose_per_year_dict[(study_id, current_date)] = round(total_dose_year, 2)
+
+                accumulated_dose = accumulated_dose_dict.get((study_id, date), 0)
+                dose_per_year = dose_per_year_dict.get((study_id, date), 0)
                 hl7_filename = f"{HL7_DIR}/{name}_{date_obj.strftime('%Y%m%d')}_{data_dict['StudyID']}.hl7"
                 with open(hl7_filename, "w") as f:
                     f.write(hl7_msg)
