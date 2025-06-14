@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from pydicom.errors import InvalidDicomError
 import re
 from rapidfuzz import fuzz  # أسرع من fuzzywuzzy ويمكنك استبداله به
-import socket
+
 ctk.set_appearance_mode("light")
 ctk.set_default_color_theme("dark-blue")
 
@@ -33,30 +33,7 @@ COMMON_VARIANTS = {
 
 
 
-# لحساب accumulated و dose per year للمريض من كل البيانات
-def calculate_doses_for_patient(name, all_data):
-    accumulated_dose = 0
-    dose_per_year = {}
-
-    for entry in all_data:
-        if entry['name'].replace("^", " ").strip().lower() == name.replace("^", " ").strip().lower():
-
-            dose = float(entry['ctdi'])
-            date_obj = datetime.strptime(entry['date'], "%Y-%m-%d")
-            year = date_obj.year
-
-            accumulated_dose += dose
-            if year in dose_per_year:
-                dose_per_year[year] += dose
-            else:
-                dose_per_year[year] = dose
-
-    # نعيدها كـ (accumulated, string لكل السنوات)
-    dose_per_year_str = ", ".join([f"{y}:{v:.2f}" for y, v in dose_per_year.items()])
-    return accumulated_dose, dose_per_year_str
-
-
-def convert_to_hl7(ds, msv, accumulated_dose, dose_per_year_str):
+def convert_to_hl7(ds, msv):
     name = str(getattr(ds, "PatientName", "Unknown"))
     date = getattr(ds, "StudyDate", "00000000")
     ctdi = float(getattr(ds, "CTDIvol", 0))
@@ -71,44 +48,7 @@ PID|||{name}||{dob}|{gender}||
 OBR|||{study_id}^{accession}|||CT
 OBX|1|NM|CTDIvol||{ctdi}|mGy|||
 OBX|2|NM|DLP||{dlp}|mGy*cm|||
-OBX|3|NM|EffectiveDose||{msv:.2f}|mSv|||
-OBX|4|NM|AccumulatedDose||{accumulated_dose:.2f}|mSv|||
-OBX|5|ST|DosePerYear||{dose_per_year_str}|mSv|||"""
-
-
-def save_and_send_hl7(ds, msv, all_data, ip_address="192.168.1.100", port=2575):
-    # استخراج اسم المريض
-    name = str(getattr(ds, "PatientName", "Unknown"))
-
-    # حساب الجرعات
-    accumulated_dose, dose_per_year_str = calculate_doses_for_patient(name, all_data)
-
-    # إنشاء الرسالة
-    hl7_msg = convert_to_hl7(ds, msv, accumulated_dose, dose_per_year_str)
-
-    # إنشاء مجلد للحفظ
-    os.makedirs("hl7_messages", exist_ok=True)
-
-    # اسم الملف
-    name_for_file = name.replace("^", "_").replace(" ", "_")
-    date = getattr(ds, "StudyDate", "00000000")
-    filename = f"hl7_messages/{name_for_file}_{date}.hl7"
-
-    # حفظ الملف
-    with open(filename, "w") as f:
-        f.write(hl7_msg)
-
-    print(f"✅ HL7 message saved to: {filename}")
-
-    # إرسال الرسالة عبر TCP/IP
-    try:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.connect((ip_address, port))
-            s.sendall(hl7_msg.encode("utf-8"))
-        print(f"✅ HL7 message sent to {ip_address}:{port}")
-    except Exception as e:
-        print(f"❌ Failed to send HL7 message: {e}")
-
+OBX|3|NM|EffectiveDose||{msv:.2f}|mSv|||"""
 def normalize_name(name):
     name = re.sub(r"[^a-zA-Z ]", " ", name)
     name = re.sub(r"\s+", " ", name).strip().lower()
@@ -190,6 +130,7 @@ def process_dicom_files(files):
 
             msv = ctdi * 0.014
 
+            # نحاول نطابق الأسماء الذكية
             matched_key = None
             for existing in existing_keys:
                 if is_same_person(name, existing[0]) and existing[1] == date_obj.date():
@@ -221,65 +162,17 @@ def process_dicom_files(files):
                     "Dataset": ds
                 }
                 temp_cases[key] = data_dict
-                # نحاول نجيب الجرعة التراكمية والسنوية من الحالات السابقة
-                for record in all_data:
-                    if (record["Name"] == name and 
-                        record["Date"].date() == date_obj.date() and 
-                        record["StudyID"] == data_dict["StudyID"]):
-                        data_dict["AccumulatedDose"] = record.get("AccumulatedDose", 0.0)
-                        data_dict["DosePerYear"] = record.get("DosePerYear", 0.0)
-                        break
-                else:
-                    data_dict["AccumulatedDose"] = 0.0
-                    data_dict["DosePerYear"] = 0.0
+
+                hl7_msg = convert_to_hl7(ds, msv)
+                hl7_filename = f"{HL7_DIR}/{name}_{date_obj.strftime('%Y%m%d')}_{data_dict['StudyID']}.hl7"
+                with open(hl7_filename, "w") as f:
+                    f.write(hl7_msg)
 
         except Exception as e:
             messagebox.showerror("Error", f"Failed to process file {path}.\nError: {e}")
 
-    # نحسب الجرعات
-    all_temp_data = list(temp_cases.values()) + all_data
-
-    # نحسب الجرعة التراكمية
-    patient_records = {}
-    for data in all_temp_data:
-        name = data["Name"]
-        date = data["Date"]
-        dose = data["mSv"]
-        if name not in patient_records:
-            patient_records[name] = []
-        patient_records[name].append((date, dose))
-
-    accumulated_dose_dict = {}
-    dose_per_year_dict = {}
-
-    for name, records in patient_records.items():
-        records.sort(key=lambda x: x[0])
-        total_dose = 0
-        for date, dose in records:
-            total_dose += dose
-            accumulated_dose_dict[(name, date)] = round(total_dose, 2)
-
-        for current_date, _ in records:
-            start_date = current_date - timedelta(days=364)
-            dose_year = sum(dose for date, dose in records if start_date <= date <= current_date)
-            dose_per_year_dict[(name, current_date)] = round(dose_year, 2)
-
-    # نولد ملفات HL7 بعد معرفة القيم
-    for key, data_dict in temp_cases.items():
-        ds = data_dict["Dataset"]
-        name = data_dict["Name"]
-        date = data_dict["Date"]
-        msv = data_dict["mSv"]
-        accumulated_dose = data_dict.get("AccumulatedDose", 0.0)
-        dose_per_year = data_dict.get("DosePerYear", 0.0)
-        hl7_msg = convert_to_hl7(ds, msv, accumulated_dose, dose_per_year)
-        hl7_filename = f"{HL7_DIR}/{name}_{date.strftime('%Y%m%d')}_{data_dict['StudyID']}.hl7"
-        with open(hl7_filename, "w") as f:
-            f.write(hl7_msg)
-
     all_data.extend(temp_cases.values())
     display_text_data()
-
 # عدل دالة read_dicom_files الحالية لتستخدم process_dicom_files:
 def read_dicom_files():
     files = filedialog.askopenfilenames(filetypes=[("DICOM files", "*.dcm")])
