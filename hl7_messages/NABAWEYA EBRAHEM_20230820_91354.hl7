@@ -4,3 +4,5 @@ OBR|||91354^91354|||CT
 OBX|1|NM|CTDIvol||54.4|mGy|||
 OBX|2|NM|DLP||0.0|mGy*cm|||
 OBX|3|NM|EffectiveDose||0.76|mSv|||
+OBX|4|NM|AccumulatedDose||0.00|mSv|||
+OBX|5|NM|DosePerYear||0.00|mSv|||
