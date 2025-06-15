@@ -1,6 +1,8 @@
-MSH|^~\&|CTApp|Hospital|PACS|Hospital|20230825||ORU^R01|MSG00001|P|2.3
-PID|||NABAWEYA EBRAHEM|||||
-OBR|||91404^91404|||CT
+MSH|^~\&|RadiologySystem|Hospital|PACS|Hospital|20250615125148||ORM^O01|91404|P|2.3
+PID|||91404||NABAWEYA EBRAHEM|||||
+OBR|||91404^91404||MRI|||||20230825
 OBX|1|NM|CTDIvol||82.3|mGy|||
 OBX|2|NM|DLP||0.0|mGy*cm|||
-OBX|3|NM|EffectiveDose||1.15|mSv|||
+OBX|3|NM|Dose_mSv||1.15|mSv|||
+OBX|4|NM|AccumulatedDose||0.00|mSv|||
+OBX|5|NM|DosePerYear||0.00|mSv|||
