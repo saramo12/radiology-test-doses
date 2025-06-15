@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from pydicom.errors import InvalidDicomError
 import re
 from rapidfuzz import fuzz  # أسرع من fuzzywuzzy ويمكنك استبداله به
-
+import socket
 ctk.set_appearance_mode("light")
 ctk.set_default_color_theme("dark-blue")
 
@@ -63,17 +63,46 @@ COMMON_VARIANTS = {
 # """
 #     return hl7_message
 
+def send_hl7_message(ip, port, message):
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.connect((ip, port))
+        sock.sendall(message.encode('utf-8'))
+        sock.close()
+        messagebox.showinfo("Success", f"HL7 message sent to {ip}:{port}")
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to send HL7 message.\n{e}")
 
 def convert_to_hl7_from_table(data):
+    accumulated_dose = data.get("AccumulatedDose", 0)
+    dose_per_year = data.get("DosePerYear", 0)
     return f"""MSH|^~\\&|RadiologySystem|Hospital|PACS|Hospital|{datetime.now().strftime('%Y%m%d%H%M%S')}||ORM^O01|{data.get("StudyID", "")}|P|2.3
 PID|||{data.get("StudyID", "")}||{data.get("Name", "")}|||{data.get("DOB", "")}|{data.get("Sex", "")}
 OBR|||{data.get("StudyID", "")}||{data.get("Modality", "")}|||||{data.get("Date").strftime('%Y%m%d')}
 OBX|1|NM|CTDIvol||{data.get("CTDIvol", 0):.2f}|mGy
 OBX|2|NM|DLP||{data.get("DLP", 0):.2f}|mGy*cm
 OBX|3|NM|Dose_mSv||{data.get("mSv", 0):.2f}|mSv
-OBX|4|NM|AccumulatedDose||{data.get("AccumulatedDose", 0):.2f}|mSv
-OBX|5|NM|DosePerYear||{data.get("DosePerYear", 0):.2f}|mSv
+OBX|4|NM|AccumulatedDose||{accumulated_dose:.2f}|mSv
+OBX|5|NM|DosePerYear||{dose_per_year:.2f}|mSv
 """
+# def show_hl7_for_selected():
+#     selected = [data for var, data in check_vars if var.get()]
+    
+#     if len(selected) != 1:
+#         messagebox.showerror("Error", "Please select exactly one case to view HL7 message.")
+#         return
+
+#     data = selected[0]
+#     hl7_message = convert_to_hl7_from_table(data)
+
+#     hl7_window = ctk.CTkToplevel()
+#     hl7_window.title("HL7 Message")
+#     hl7_window.geometry("700x400")
+
+#     textbox = ctk.CTkTextbox(hl7_window, wrap="word")
+#     textbox.insert("1.0", hl7_message)
+#     textbox.configure(state="disabled")
+#     textbox.pack(fill="both", expand=True, padx=10, pady=10)
 def show_hl7_for_selected():
     selected = [data for var, data in check_vars if var.get()]
     
@@ -81,18 +110,56 @@ def show_hl7_for_selected():
         messagebox.showerror("Error", "Please select exactly one case to view HL7 message.")
         return
 
+    # طلب الباسوورد
+    password = simpledialog.askstring("Password", "Enter password to view HL7 message:", show='*')
+    if password != "admin123":
+        messagebox.showerror("Unauthorized", "Incorrect password.")
+        return
+
     data = selected[0]
     hl7_message = convert_to_hl7_from_table(data)
 
     hl7_window = ctk.CTkToplevel()
     hl7_window.title("HL7 Message")
-    hl7_window.geometry("700x400")
+    hl7_window.geometry("700x450")
+    hl7_window.attributes("-topmost", True)  # دايمًا فوق
 
     textbox = ctk.CTkTextbox(hl7_window, wrap="word")
     textbox.insert("1.0", hl7_message)
     textbox.configure(state="disabled")
-    textbox.pack(fill="both", expand=True, padx=10, pady=10)
+    textbox.pack(fill="both", expand=True, padx=10, pady=(10,5))
 
+    # مدخلات ال IP و Port
+    ip_var = ctk.StringVar()
+    port_var = ctk.StringVar()
+
+    frame_send = ctk.CTkFrame(hl7_window)
+    frame_send.pack(fill="x", padx=10, pady=5)
+
+    ctk.CTkLabel(frame_send, text="IP Address:").pack(side="left")
+    ip_entry = ctk.CTkEntry(frame_send, textvariable=ip_var, width=150)
+    ip_entry.pack(side="left", padx=5)
+
+    ctk.CTkLabel(frame_send, text="Port:").pack(side="left")
+    port_entry = ctk.CTkEntry(frame_send, textvariable=port_var, width=80)
+    port_entry.pack(side="left", padx=5)
+
+    def on_send():
+        ip = ip_var.get().strip()
+        port_text = port_var.get().strip()
+        if not ip or not port_text:
+            messagebox.showerror("Input Error", "Please enter both IP address and port.")
+            return
+        try:
+            port = int(port_text)
+        except:
+            messagebox.showerror("Input Error", "Port must be a number.")
+            return
+        
+        send_hl7_message(ip, port, hl7_message)
+
+    send_btn = ctk.CTkButton(frame_send, text="Send HL7 Message", command=on_send)
+    send_btn.pack(side="left", padx=10)
 def normalize_name(name):
     name = re.sub(r"[^a-zA-Z ]", " ", name)
     name = re.sub(r"\s+", " ", name).strip().lower()
@@ -207,7 +274,7 @@ def process_dicom_files(files):
                 }
                 temp_cases[key] = data_dict
 
-                hl7_msg = show_hl7_for_selected(data)
+                hl7_msg = show_hl7_for_selected(data_dict)
                 hl7_filename = f"{HL7_DIR}/{name}_{date_obj.strftime('%Y%m%d')}_{data_dict['StudyID']}.hl7"
                 with open(hl7_filename, "w") as f:
                     f.write(hl7_msg)
