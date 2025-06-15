@@ -61,7 +61,8 @@ COMMON_VARIANTS = {
 # OBX|4|NM|AccumulatedDose||{accumulated_dose:.2f}|mSv|||
 # OBX|5|NM|DosePerYear||{dose_per_year:.2f}|mSv|||
 # """
-#     return hl7_message
+#     
+# return hl7_message
 
 def send_hl7_message(ip, port, message):
     try:
