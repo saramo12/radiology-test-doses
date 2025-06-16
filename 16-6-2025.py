@@ -11,6 +11,7 @@ from rapidfuzz import fuzz  # أسرع من fuzzywuzzy ويمكنك استبدا
 import socket
 ctk.set_appearance_mode("light")
 ctk.set_default_color_theme("dark-blue")
+from PIL import Image, ImageTk, ImageDraw
 
 CSV_FILE = "rad.csv"
 HL7_DIR = "hl7_messages"
@@ -647,16 +648,40 @@ root.bind("<Configure>", resize_bg)
 
 # أزرار التحكم
 # الأزرار بخطوة relx = 0.14 لتوزيعهم بالتساوي تقريبًا
-ctk.CTkButton(root, text="Load DICOM Files", command=read_dicom_files, width=150, height=35).place(relx=0.02, rely=0.02)
-ctk.CTkButton(root, text="Load DICOM Folder", command=read_dicom_folder, width=150, height=35).place(relx=0.17, rely=0.02)
-ctk.CTkButton(root, text="Show HL7 Message", command=show_hl7_for_selected, width=150, height=35).place(relx=0.32, rely=0.02)
-ctk.CTkButton(root, text="Show Selected Cases", command=show_selected_cases, width=180, height=35).place(relx=0.47, rely=0.02)
-ctk.CTkButton(root, text="Delete Selected", command=delete_selected, width=150, height=35).place(relx=0.66, rely=0.02)
+# ctk.CTkButton(root, text="DICOM Files", command=read_dicom_files, width=120, height=35).place(relx=0.01, rely=0.22)
+# ctk.CTkButton(root, text="DICOM Folder", command=read_dicom_folder, width=120, height=35).place(relx=0.01, rely=0.27)
+# ctk.CTkButton(root, text="HL7 Message", command=show_hl7_for_selected, width=120, height=35).place(relx=0.01, rely=0.32)
+# ctk.CTkButton(root, text="Selected Cases", command=show_selected_cases, width=120, height=35).place(relx=0.01, rely=0.37)
+# ctk.CTkButton(root, text="Delete Cases", command=delete_selected, width=120, height=35).place(relx=0.01, rely=0.42)
+# ألوان موحدة للأزرار – Flat modern look
+BUTTON_COLOR = "#2563eb"        # أزرق هادئ
+BUTTON_HOVER = "#1e40af"        # أزرق داكن
+DELETE_COLOR = "#dc2626"        # أحمر خفيف
+DELETE_HOVER = "#991b1b"        # أحمر داكن
 
+ctk.CTkButton(root, text="📂 DICOM Files", command=read_dicom_files,
+              width=140, height=40, fg_color=BUTTON_COLOR, hover_color=BUTTON_HOVER,
+              corner_radius=10, font=("Arial", 13, "bold")).place(relx=0.01, rely=0.22)
+
+ctk.CTkButton(root, text="📁 DICOM Folder", command=read_dicom_folder,
+              width=140, height=40, fg_color=BUTTON_COLOR, hover_color=BUTTON_HOVER,
+              corner_radius=10, font=("Arial", 13, "bold")).place(relx=0.01, rely=0.28)
+
+ctk.CTkButton(root, text="💬 HL7 Message", command=show_hl7_for_selected,
+              width=140, height=40, fg_color="#059669", hover_color="#047857",
+              corner_radius=10, font=("Arial", 13, "bold")).place(relx=0.01, rely=0.34)
+
+ctk.CTkButton(root, text="🧾 Selected Cases", command=show_selected_cases,
+              width=140, height=40, fg_color="#64748b", hover_color="#475569",
+              corner_radius=10, font=("Arial", 13, "bold")).place(relx=0.01, rely=0.40)
+
+ctk.CTkButton(root, text="❌ Delete Cases", command=delete_selected,
+              width=140, height=40, fg_color=DELETE_COLOR, hover_color=DELETE_HOVER,
+              corner_radius=10, font=("Arial", 13, "bold")).place(relx=0.01, rely=0.46)
 # خيارات الفلترة والترتيب بجانب الأزرار
 sort_var = ctk.StringVar(value="Name")
-ctk.CTkLabel(root, text="Sort by:",fg_color="white", text_color="black").place(relx=0.82, rely=0.015)
-ctk.CTkOptionMenu(root, variable=sort_var, values=["Name", "Date"], command=lambda _: display_text_data()).place(relx=0.88, rely=0.015)
+ctk.CTkLabel(root, text="Sort by:",fg_color="white", text_color="black").place(relx=0.78, rely=0.08)
+ctk.CTkOptionMenu(root, variable=sort_var, values=["Name", "Date"], command=lambda _: display_text_data()).place(relx=0.82, rely=0.08)
 
 # إطار لصف الفلاتر الثلاثة (في منتصف الواجهة)
 filters_frame = ctk.CTkFrame(root, fg_color="white")
