@@ -565,26 +565,43 @@ def show_selected_cases_images():
 def show_case_images(case):
     window = ctk.CTkToplevel()
     window.title(f"Images for {case['Name']} - {case['Date'].strftime('%Y-%m-%d')}")
+    window.geometry("900x700")
 
     index = 0
+    images = case.get("Images", [])
 
-    img_label = ctk.CTkLabel(window)
-    img_label.pack(padx=10, pady=10)
+    img_label = ctk.CTkLabel(window, text="No Image")
+    img_label.pack(pady=10)
 
-    info_label = ctk.CTkLabel(window, text=f"Patient: {case['Name']}\nStudy Date: {case['Date'].strftime('%Y-%m-%d')}\nModality: {case['Modality']}")
-    info_label.pack(padx=10, pady=10)
+    # ===== معلومات الحالة =====
+    info_text = (
+        f"👤 Name: {case['Name']}\n"
+        f"🆔 Study ID: {case['StudyID']}\n"
+        f"📷 Modality: {case['Modality']}\n"
+        f"📅 Date: {case['Date'].strftime('%Y-%m-%d')}\n"
+        f"💉 Dose (mSv): {case['mSv']:.2f}\n"
+        f"📊 Accumulated Dose: {case.get('AccumulatedDose', 0):.2f}"
+    )
+    info_label = ctk.CTkLabel(window, text=info_text, justify="left", anchor="w")
+    info_label.pack(pady=5)
+
+    counter_label = ctk.CTkLabel(window, text="")
+    counter_label.pack()
 
     def update_image():
         nonlocal index
-        if 0 <= index < len(case['Images']):
-            img_label.configure(image=case['Images'][index])
-            img_label.image = case['Images'][index]  # لمنع الصورة من الإزالة من الذاكرة
+        if 0 <= index < len(images):
+            img = images[index]
+            img_label.configure(image=img, text="")
+            img_label.image = img
+            counter_label.configure(text=f"Image {index + 1} of {len(images)}")
         else:
-            img_label.configure(text="No Image")
+            img_label.configure(image=None, text="No Image")
+            counter_label.configure(text="")
 
     def next_img():
         nonlocal index
-        if index < len(case['Images']) - 1:
+        if index < len(images) - 1:
             index += 1
             update_image()
 
@@ -597,15 +614,13 @@ def show_case_images(case):
     btn_frame = ctk.CTkFrame(window)
     btn_frame.pack(pady=10)
 
-    prev_btn = ctk.CTkButton(btn_frame, text="Previous", command=prev_img)
-    prev_btn.pack(side="left", padx=10)
+    prev_btn = ctk.CTkButton(btn_frame, text="⏮ Previous", command=prev_img)
+    prev_btn.pack(side="left", padx=20)
 
-    next_btn = ctk.CTkButton(btn_frame, text="Next", command=next_img)
-    next_btn.pack(side="right", padx=10)
+    next_btn = ctk.CTkButton(btn_frame, text="Next ⏭", command=next_img)
+    next_btn.pack(side="right", padx=20)
 
     update_image()
-
-
 
 
 
