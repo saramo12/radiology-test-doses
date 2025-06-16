@@ -243,7 +243,6 @@ def process_dicom_files(files):
 
             msv = ctdi * 0.014
 
-            # نحاول نطابق الأسماء الذكية
             matched_key = None
             for existing in existing_keys:
                 if is_same_person(name, existing[0]) and existing[1] == date_obj.date():
@@ -252,15 +251,14 @@ def process_dicom_files(files):
 
             key = matched_key if matched_key else (name, date_obj.date(), getattr(ds, "StudyID", ""), getattr(ds, "AccessionNumber", ""))
 
+            # تحويل بكسل الصورة لصورة يمكن عرضها
+            img = None
+            if 'PixelData' in ds:
+                img_pil = Image.fromarray(ds.pixel_array)
+                img_pil.thumbnail((400, 400))
+                img = ImageTk.PhotoImage(img_pil)
+
             if key not in temp_cases:
-                images_list = []
-                if 'PixelData' in ds:
-                    img_pil = Image.fromarray(ds.pixel_array)
-                    img_pil.thumbnail((400, 400))
-                    img_tk = ImageTk.PhotoImage(img_pil)
-                    images_list.append(img_tk)
-
-
                 data_dict = {
                     "Name": name,
                     "Date": date_obj,
@@ -271,23 +269,26 @@ def process_dicom_files(files):
                     "DOB": getattr(ds, "PatientBirthDate", ""),
                     "StudyID": getattr(ds, "StudyID", ""),
                     "Accession": getattr(ds, "AccessionNumber", ""),
-                    "Images": images_list, # 🟢 مجموعة الصور
+                    "Images": [],
                     "Path": path,
                     "Modality": getattr(ds, "Modality", "Unknown"),
                     "Dataset": ds
                 }
                 temp_cases[key] = data_dict
 
-                hl7_msg = convert_to_hl7_from_table(data_dict)
-                hl7_filename = f"{HL7_DIR}/{name}_{date_obj.strftime('%Y%m%d')}_{data_dict['StudyID']}.hl7"
-                with open(hl7_filename, "w") as f:
-                    f.write(hl7_msg)
+            # أضف الصورة لقائمة الصور في الحالة حتى لو الحالة موجودة مسبقًا
+            if img is not None:
+                temp_cases[key]["Images"].append(img)
+
+            hl7_msg = convert_to_hl7_from_table(temp_cases[key])
+            hl7_filename = f"{HL7_DIR}/{name}_{date_obj.strftime('%Y%m%d')}_{temp_cases[key]['StudyID']}.hl7"
+            with open(hl7_filename, "w") as f:
+                f.write(hl7_msg)
 
         except Exception as e:
             messagebox.showerror("Error", f"Failed to process file {path}.\nError: {e}")
 
     all_data.extend(temp_cases.values())
-
     # ======= حساب وتحديث AccumulatedDose و DosePerYear =======
     patient_records = {}
     for data in all_data:
@@ -728,7 +729,7 @@ ctk.CTkButton(root, text="❌ Delete Cases", command=delete_selected,
               corner_radius=10, font=("Arial", 13, "bold")).place(relx=0.01, rely=0.46)
 ctk.CTkButton(root, text="❌ Show Cases", command=show_selected_cases_images,
               width=140, height=40, fg_color=DELETE_COLOR, hover_color=DELETE_HOVER,
-              corner_radius=10, font=("Arial", 13, "bold")).place(relx=0.01, rely=0.46)              
+              corner_radius=10, font=("Arial", 13, "bold")).place(relx=0.01, rely=0.52)              
 # خيارات الفلترة والترتيب بجانب الأزرار
 sort_var = ctk.StringVar(value="Name")
 ctk.CTkLabel(root, text="Sort by:",fg_color="white", text_color="black").place(relx=0.78, rely=0.08)
