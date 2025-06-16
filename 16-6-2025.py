@@ -243,22 +243,22 @@ def process_dicom_files(files):
 
             msv = ctdi * 0.014
 
-            # نحاول نطابق الأسماء الذكية
+            # مطابقة الاسم والتاريخ
             matched_key = None
             for existing in existing_keys:
                 if is_same_person(name, existing[0]) and existing[1] == date_obj.date():
                     matched_key = existing
                     break
 
-            key = matched_key if matched_key else (name, date_obj.date(), getattr(ds, "StudyID", ""), getattr(ds, "AccessionNumber", ""))
+            key = matched_key if matched_key else (
+                name,
+                date_obj.date(),
+                getattr(ds, "StudyID", ""),
+                getattr(ds, "AccessionNumber", ""),
+            )
 
+            # تحقق من وجود PixelData قبل محاولة إنشاء الصورة
             if key not in temp_cases:
-                img = None
-                if 'PixelData' in ds:
-                    img_pil = Image.fromarray(ds.pixel_array)
-                    img_pil.thumbnail((400, 400))
-                    img = ImageTk.PhotoImage(img_pil)
-
                 data_dict = {
                     "Name": name,
                     "Date": date_obj,
@@ -269,17 +269,27 @@ def process_dicom_files(files):
                     "DOB": getattr(ds, "PatientBirthDate", ""),
                     "StudyID": getattr(ds, "StudyID", ""),
                     "Accession": getattr(ds, "AccessionNumber", ""),
-                    "Image": img,
+                    "Images": [],
                     "Path": path,
                     "Modality": getattr(ds, "Modality", "Unknown"),
                     "Dataset": ds
                 }
                 temp_cases[key] = data_dict
 
-                hl7_msg = convert_to_hl7_from_table(data_dict)
-                hl7_filename = f"{HL7_DIR}/{name}_{date_obj.strftime('%Y%m%d')}_{data_dict['StudyID']}.hl7"
-                with open(hl7_filename, "w") as f:
-                    f.write(hl7_msg)
+            # الآن أضف الصور
+            if 'PixelData' in ds:
+                try:
+                    img_pil = Image.fromarray(ds.pixel_array)
+                    img_pil.thumbnail((400, 400))
+                    temp_cases[key]["Images"].append(img_pil)
+                except Exception as img_err:
+                    print(f"Failed to process image for {path}: {img_err}")
+
+            # حفظ رسالة HL7
+            hl7_msg = convert_to_hl7_from_table(temp_cases[key])
+            hl7_filename = f"{HL7_DIR}/{name}_{date_obj.strftime('%Y%m%d')}_{temp_cases[key]['StudyID']}.hl7"
+            with open(hl7_filename, "w") as f:
+                f.write(hl7_msg)
 
         except Exception as e:
             messagebox.showerror("Error", f"Failed to process file {path}.\nError: {e}")
@@ -318,9 +328,7 @@ def process_dicom_files(files):
         data["AccumulatedDose"] = accumulated_dose_dict.get((sid, dt), 0)
         data["DosePerYear"] = dose_per_year_dict.get((sid, dt), 0)
 
-    # ✅ عرض البيانات بعد ما كل حاجة اتحدثت
     display_text_data()
-    # ============= تحديث AccumulatedDose و DosePerYear =============
 
 # ================================================================
 # عدل دالة read_dicom_files الحالية لتستخدم process_dicom_files:
@@ -515,6 +523,88 @@ def show_hl7_message():
     else:
         messagebox.showerror("Not Found", "HL7 message not found.")
 
+# def show_selected_cases():
+#     update_selected_cases()
+#     if len(selected_cases) not in [2, 4]:
+#         messagebox.showwarning("Selection Error", "Please select 2 or 4 cases.")
+#         return
+
+#     top = ctk.CTkToplevel(root)
+#     top.title("Selected Cases Viewer")
+#     top.geometry("1100x700")
+#     top.lift()
+
+#     rows = 2 if len(selected_cases) == 4 else 1
+#     cols = 2
+
+#     for idx, data in enumerate(selected_cases):
+#         row = idx // 2
+#         col = idx % 2
+#         frame = ctk.CTkFrame(top, fg_color="#f9f9f9", corner_radius=15, border_width=1, border_color="#ccc")
+#         frame.grid(row=row, column=col, padx=15, pady=15, sticky="nsew")
+
+#         frame.grid_rowconfigure(0, weight=3)
+#         frame.grid_rowconfigure(1, weight=2)
+#         frame.grid_columnconfigure(0, weight=1)
+
+#         images = data.get("Images", [])
+#         current_index = [0]  # استخدم قائمة لتكون قابلة للتعديل داخل الوظائف الداخلية
+
+#         def update_image(label, img_list, index_list, container):
+#             if not img_list:
+#                 return
+#             pil_image = img_list[index_list[0]].copy()
+#             # تحجيم الصورة حسب حجم الفريم
+#             container_width = container.winfo_width()
+#             container_height = int(container.winfo_height() * 0.7)
+#             pil_image = pil_image.resize((container_width, container_height), Image.ANTIALIAS)
+#             tk_img = ImageTk.PhotoImage(pil_image)
+#             label.configure(image=tk_img)
+#             label.image = tk_img
+
+#         img_label = ctk.CTkLabel(frame, text="")
+#         img_label.grid(row=0, column=0, columnspan=3, sticky="nsew", padx=10, pady=10)
+
+#         # أزرار تنقّل
+#         def next_image():
+#             current_index[0] = (current_index[0] + 1) % len(images)
+#             update_image(img_label, images, current_index, frame)
+
+#         def prev_image():
+#             current_index[0] = (current_index[0] - 1) % len(images)
+#             update_image(img_label, images, current_index, frame)
+
+#         btn_prev = ctk.CTkButton(frame, text="⏪", width=40, command=prev_image)
+#         btn_next = ctk.CTkButton(frame, text="⏩", width=40, command=next_image)
+#         btn_prev.grid(row=1, column=0, sticky="w", padx=15)
+#         btn_next.grid(row=1, column=2, sticky="e", padx=15)
+
+#         info = (
+#             f"👤 Name: {data['Name']}\n"
+#             f"🆔 ID: {data['StudyID']}\n"
+#             f"📅 Date: {data['Date'].strftime('%Y-%m-%d')}\n"
+#             f"🧬 Type: {data['Modality']}\n"
+#             f"☢ Dose: {data['mSv']:.2f} mSv\n"
+#             f"🧪 CTDIvol: {data['CTDIvol']} mGy\n"
+#             f"📏 DLP: {data['DLP']} mGy·cm\n"
+#             f"⚧ Sex: {data['Sex']}\n"
+#             f"🎂 DOB: {data['DOB']}"
+#         )
+#         info_label = ctk.CTkLabel(frame, text=info, justify="left", anchor="nw", font=ctk.CTkFont(size=14))
+#         info_label.grid(row=2, column=0, columnspan=3, sticky="nsew", padx=20, pady=(5, 20))
+
+#         frame.bind("<Configure>", lambda event, lbl=img_label, imgs=images, idx=current_index, fr=frame: update_image(lbl, imgs, idx, fr))
+
+#     for r in range(rows):
+#         top.grid_rowconfigure(r, weight=1)
+#     for c in range(cols):
+#         top.grid_columnconfigure(c, weight=1)
+
+
+
+
+
+
 def show_selected_cases():
     update_selected_cases()
     if len(selected_cases) not in [2, 4]:
@@ -532,7 +622,6 @@ def show_selected_cases():
     for idx, data in enumerate(selected_cases):
         row = idx // 2
         col = idx % 2
-
         frame = ctk.CTkFrame(top, fg_color="#f9f9f9", corner_radius=15, border_width=1, border_color="#ccc")
         frame.grid(row=row, column=col, padx=15, pady=15, sticky="nsew")
 
@@ -541,31 +630,42 @@ def show_selected_cases():
         frame.grid_columnconfigure(0, weight=1)
 
         images = data.get("Images", [])
-        current_index = [0]  # استخدم قائمة لتكون قابلة للتعديل داخل الوظائف الداخلية
+        print(f"Images loaded for {data['Name']} = {len(images)}")
 
-        def update_image(label, img_list, index_list, container):
-            if not img_list:
-                return
-            pil_image = img_list[index_list[0]].copy()
-            # تحجيم الصورة حسب حجم الفريم
-            container_width = container.winfo_width()
-            container_height = int(container.winfo_height() * 0.7)
-            pil_image = pil_image.resize((container_width, container_height), Image.ANTIALIAS)
-            tk_img = ImageTk.PhotoImage(pil_image)
-            label.configure(image=tk_img)
-            label.image = tk_img
+
+        current_index = [0]  # يمكن تغييره داخل الدوال الداخلية
 
         img_label = ctk.CTkLabel(frame, text="")
         img_label.grid(row=0, column=0, columnspan=3, sticky="nsew", padx=10, pady=10)
+        update_image(img_label, images, current_index, frame)
 
-        # أزرار تنقّل
+        def update_image(label, img_list, index_list, container):
+            if not img_list:
+                label.configure(text="No Image")
+                return
+            pil_image = img_list[index_list[0]]
+            container.update_idletasks()
+            container_width = container.winfo_width()
+            container_height = int(container.winfo_height() * 0.65)
+
+            if container_width < 10 or container_height < 10:
+                # في حالة عدم تحميل الأبعاد بشكل صحيح
+                container_width, container_height = 400, 300
+
+            resized = pil_image.resize((container_width, container_height), Image.ANTIALIAS)
+            tk_img = ImageTk.PhotoImage(resized)
+            label.configure(image=tk_img)
+            label.image = tk_img  # 🟢 لازم عشان الصورة تفضل ظاهرة
+
         def next_image():
-            current_index[0] = (current_index[0] + 1) % len(images)
-            update_image(img_label, images, current_index, frame)
+            if images:
+                current_index[0] = (current_index[0] + 1) % len(images)
+                update_image(img_label, images, current_index, frame)
 
         def prev_image():
-            current_index[0] = (current_index[0] - 1) % len(images)
-            update_image(img_label, images, current_index, frame)
+            if images:
+                current_index[0] = (current_index[0] - 1) % len(images)
+                update_image(img_label, images, current_index, frame)
 
         btn_prev = ctk.CTkButton(frame, text="⏪", width=40, command=prev_image)
         btn_next = ctk.CTkButton(frame, text="⏩", width=40, command=next_image)
@@ -586,12 +686,14 @@ def show_selected_cases():
         info_label = ctk.CTkLabel(frame, text=info, justify="left", anchor="nw", font=ctk.CTkFont(size=14))
         info_label.grid(row=2, column=0, columnspan=3, sticky="nsew", padx=20, pady=(5, 20))
 
-        frame.bind("<Configure>", lambda event, lbl=img_label, imgs=images, idx=current_index, fr=frame: update_image(lbl, imgs, idx, fr))
-
+        # أول ما يتعمل resize للفريم، يتم تحديث الصورة المناسبةس
+        frame.bind("<Configure>", lambda event, lbl=img_label, imgs=images, idx=current_index, fr=frame:
+           update_image(lbl, imgs, idx, fr))
     for r in range(rows):
         top.grid_rowconfigure(r, weight=1)
     for c in range(cols):
         top.grid_columnconfigure(c, weight=1)
+
 def delete_selected():
     update_selected_cases()
     if not selected_cases:
