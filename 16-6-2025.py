@@ -321,7 +321,7 @@ def process_dicom_files(files):
     # ✅ عرض البيانات بعد ما كل حاجة اتحدثت
     display_text_data()
     # ============= تحديث AccumulatedDose و DosePerYear =============
-    
+
 # ================================================================
 # عدل دالة read_dicom_files الحالية لتستخدم process_dicom_files:
 def read_dicom_files():
