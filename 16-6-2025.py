@@ -494,103 +494,64 @@ def display_text_data():
 
 
 
-
-
-
-
 def show_selected_cases_images():
-    selected = [data for var, data in check_vars if var.get()]
-    if len(selected) not in [2, 4]:
-        messagebox.showwarning("Selection Error", "Please select exactly 2 or 4 cases to display.")
-        return
+    for var, case in check_vars:
+        if var.get():
+            show_case_images(case)
 
-    new_win = ctk.CTkToplevel()
-    new_win.title("Selected Cases Images and Info")
-    new_win.geometry("1000x700")
 
-    container = ctk.CTkScrollableFrame(new_win, corner_radius=10)
-    container.pack(fill="both", expand=True, padx=10, pady=10)
 
-    for i, case in enumerate(selected):
-        frame = ctk.CTkFrame(container, corner_radius=15, border_width=2)
-        frame.grid(row=0, column=i, padx=15, pady=15, sticky="n")
 
-        images = case.get("Images", [])
 
-        if not images and "Dataset" in case:
-            ds = case["Dataset"]
-            if 'PixelData' in ds:
-                img_pil = Image.fromarray(ds.pixel_array)
-                img_pil.thumbnail((300, 300))
-                img_tk = ImageTk.PhotoImage(img_pil)
-                images = [img_tk]
+# def show_selected_cases_images():
+#     selected = [data for var, data in check_vars if var.get()]
+#     if len(selected) not in [2, 4]:
+#         messagebox.showwarning("Selection Error", "Please select exactly 2 or 4 cases to display.")
+#         return
 
-        case["Images"] = images  # تأكيد تحديث الصور
-        total_images = len(images)
-        index_var = tk.IntVar(value=0)
+#     new_win = ctk.CTkToplevel()
+#     new_win.title("Selected Cases Images and Info")
+#     new_win.geometry("1000x700")
 
-        # ===== Label لعرض الصورة =====
-        image_label = ctk.CTkLabel(frame, text="No Image", width=300, height=300)
-        image_label.pack(pady=5)
+#     container = ctk.CTkScrollableFrame(new_win, corner_radius=10)
+#     container.pack(fill="both", expand=True, padx=10, pady=10)
 
-        # ===== Label لعرض المؤشر (Image 1 of X) =====
-        counter_label = ctk.CTkLabel(frame, text="")
-        counter_label.pack()
+#     for i, case in enumerate(selected):
+#         frame = ctk.CTkFrame(container, corner_radius=10, border_width=1)
+#         frame.grid(row=0, column=i, padx=10, pady=10, sticky="n")
 
-        def make_update_func(images, image_label, counter_label, index_var):
-            def update():
-                idx = index_var.get()
-                if 0 <= idx < len(images):
-                    image_label.configure(image=images[idx], text="")
-                    image_label.image = images[idx]
-                    counter_label.configure(text=f"Image {idx+1} of {len(images)}")
-                else:
-                    image_label.configure(image=None, text="No Image")
-                    counter_label.configure(text="")
-            return update
+#         images = case.get("Images", [])
+#         if not images and "Dataset" in case:
+#             ds = case["Dataset"]
+#             if 'PixelData' in ds:
+#                 img_pil = Image.fromarray(ds.pixel_array)
+#                 img_pil.thumbnail((300, 300))
+#                 img_tk = ImageTk.PhotoImage(img_pil)
+#                 label_img = ctk.CTkLabel(frame, image=img_tk)
+#                 label_img.image = img_tk
+#                 label_img.pack(pady=5)
+#         else:
+#             for img_tk in images:
+#                 label_img = ctk.CTkLabel(frame, image=img_tk)
+#                 label_img.image = img_tk
+#                 label_img.pack(pady=5)
 
-        update_image = make_update_func(images, image_label, counter_label, index_var)
-        update_image()
+#         info_text = (
+#             f"Name: {case['Name']}\n"
+#             f"Date: {case['Date'].strftime('%Y-%m-%d')}\n"
+#             f"Study ID: {case['StudyID']}\n"
+#             f"Modality: {case['Modality']}\n"
+#             f"Dose (mSv): {case['mSv']:.2f}\n"
+#             f"Accumulated Dose: {case.get('AccumulatedDose', 0):.2f}\n"
+#             f"Dose Per Year: {case.get('DosePerYear', 0):.2f}"
+#         )
+#         label_info = ctk.CTkLabel(frame, text=info_text, justify="left")
+#         label_info.pack(pady=5)
 
-        # ===== أزرار التنقل =====
-        btn_frame = ctk.CTkFrame(frame)
-        btn_frame.pack(pady=5)
+#     for i in range(len(selected)):
+#         container.grid_columnconfigure(i, weight=1)
 
-        def make_prev_func(index_var, update_func):
-            def prev():
-                if index_var.get() > 0:
-                    index_var.set(index_var.get() - 1)
-                    update_func()
-            return prev
 
-        def make_next_func(index_var, images, update_func):
-            def next():
-                if index_var.get() < len(images) - 1:
-                    index_var.set(index_var.get() + 1)
-                    update_func()
-            return next
-
-        prev_btn = ctk.CTkButton(btn_frame, text="⏮ Previous", command=make_prev_func(index_var, update_image))
-        prev_btn.pack(side="left", padx=5)
-
-        next_btn = ctk.CTkButton(btn_frame, text="Next ⏭", command=make_next_func(index_var, images, update_image))
-        next_btn.pack(side="right", padx=5)
-
-        # ===== معلومات الحالة =====
-        info_text = (
-            f"👤 Name: {case['Name']}\n"
-            f"📅 Date: {case['Date'].strftime('%Y-%m-%d')}\n"
-            f"🆔 Study ID: {case['StudyID']}\n"
-            f"📷 Modality: {case['Modality']}\n"
-            f"💉 Dose (mSv): {case['mSv']:.2f}\n"
-            f"📊 Accumulated Dose: {case.get('AccumulatedDose', 0):.2f}\n"
-            f"📆 Dose Per Year: {case.get('DosePerYear', 0):.2f}"
-        )
-        label_info = ctk.CTkLabel(frame, text=info_text, justify="left", anchor="w")
-        label_info.pack(pady=10)
-
-    for i in range(len(selected)):
-        container.grid_columnconfigure(i, weight=1)
 
 
 
