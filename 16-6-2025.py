@@ -105,6 +105,7 @@ OBX|5|NM|DosePerYear||{dose_per_year:.2f}|mSv
 #     textbox.configure(state="disabled")
 #     textbox.pack(fill="both", expand=True, padx=10, pady=10)
 def show_hl7_for_selected():
+    
     selected = [data for var, data in check_vars if var.get()]
     
     if len(selected) != 1:

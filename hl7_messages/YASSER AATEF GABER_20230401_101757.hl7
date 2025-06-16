@@ -1,8 +1,0 @@
-MSH|^~\&|RadiologySystem|Hospital|PACS|Hospital|20250615125147||ORM^O01|101757|P|2.3
-PID|||101757||YASSER AATEF GABER|||M||
-OBR|||101757^101757||CT|||||20230401
-OBX|1|NM|CTDIvol||59.6|mGy|||
-OBX|2|NM|DLP||0.0|mGy*cm|||
-OBX|3|NM|Dose_mSv||0.83|mSv|||
-OBX|4|NM|AccumulatedDose||0.00|mSv|||
-OBX|5|NM|DosePerYear||0.00|mSv|||
