@@ -1,0 +1,8 @@
+MSH|^~\&|RadiologySystem|Hospital|PACS|Hospital|20250616131523||ORM^O01|103158|P|2.3
+PID|||103158||REDA SHERIF||||M
+OBR|||103158||CT|||||20230525
+OBX|1|NM|CTDIvol||33.30|mGy
+OBX|2|NM|DLP||0.00|mGy*cm
+OBX|3|NM|Dose_mSv||0.47|mSv
+OBX|4|NM|AccumulatedDose||0.00|mSv
+OBX|5|NM|DosePerYear||0.00|mSv

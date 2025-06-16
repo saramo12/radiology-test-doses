@@ -1,0 +1,8 @@
+MSH|^~\&|RadiologySystem|Hospital|PACS|Hospital|20250616131522||ORM^O01|91354|P|2.3
+PID|||91354||NABAWEYA EBRAHEM||||F
+OBR|||91354||CT|||||20220219
+OBX|1|NM|CTDIvol||54.40|mGy
+OBX|2|NM|DLP||0.00|mGy*cm
+OBX|3|NM|Dose_mSv||0.76|mSv
+OBX|4|NM|AccumulatedDose||0.00|mSv
+OBX|5|NM|DosePerYear||0.00|mSv

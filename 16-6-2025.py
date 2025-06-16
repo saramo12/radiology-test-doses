@@ -276,7 +276,7 @@ def process_dicom_files(files):
                 }
                 temp_cases[key] = data_dict
 
-                hl7_msg = show_hl7_for_selected(data_dict)
+                hl7_msg = convert_to_hl7_from_table(data_dict)
                 hl7_filename = f"{HL7_DIR}/{name}_{date_obj.strftime('%Y%m%d')}_{data_dict['StudyID']}.hl7"
                 with open(hl7_filename, "w") as f:
                     f.write(hl7_msg)

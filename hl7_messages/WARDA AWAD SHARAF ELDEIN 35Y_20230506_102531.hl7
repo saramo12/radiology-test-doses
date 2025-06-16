@@ -1,0 +1,8 @@
+MSH|^~\&|RadiologySystem|Hospital|PACS|Hospital|20250616131523||ORM^O01|102531|P|2.3
+PID|||102531||WARDA AWAD SHARAF ELDEIN 35Y||||F
+OBR|||102531||CT|||||20230506
+OBX|1|NM|CTDIvol||21.70|mGy
+OBX|2|NM|DLP||0.00|mGy*cm
+OBX|3|NM|Dose_mSv||0.30|mSv
+OBX|4|NM|AccumulatedDose||0.00|mSv
+OBX|5|NM|DosePerYear||0.00|mSv
