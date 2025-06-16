@@ -492,6 +492,12 @@ def display_text_data():
     # ضبط عمود select ليكون ضيق جدا
     scroll_frame.grid_columnconfigure(col_indices["select"], weight=0, minsize=40)
 
+
+
+
+
+
+
 def show_selected_cases_images():
     selected = [data for var, data in check_vars if var.get()]
     if len(selected) not in [2, 4]:
@@ -506,39 +512,153 @@ def show_selected_cases_images():
     container.pack(fill="both", expand=True, padx=10, pady=10)
 
     for i, case in enumerate(selected):
-        frame = ctk.CTkFrame(container, corner_radius=10, border_width=1)
-        frame.grid(row=0, column=i, padx=10, pady=10, sticky="n")
+        frame = ctk.CTkFrame(container, corner_radius=15, border_width=2)
+        frame.grid(row=0, column=i, padx=15, pady=15, sticky="n")
 
         images = case.get("Images", [])
+
         if not images and "Dataset" in case:
             ds = case["Dataset"]
             if 'PixelData' in ds:
                 img_pil = Image.fromarray(ds.pixel_array)
                 img_pil.thumbnail((300, 300))
                 img_tk = ImageTk.PhotoImage(img_pil)
-                label_img = ctk.CTkLabel(frame, image=img_tk)
-                label_img.image = img_tk
-                label_img.pack(pady=5)
-        else:
-            for img_tk in images:
-                label_img = ctk.CTkLabel(frame, image=img_tk)
-                label_img.image = img_tk
-                label_img.pack(pady=5)
+                images = [img_tk]
 
+        case["Images"] = images  # تأكيد تحديث الصور
+        total_images = len(images)
+        index_var = tk.IntVar(value=0)
+
+        # ===== Label لعرض الصورة =====
+        image_label = ctk.CTkLabel(frame, text="No Image", width=300, height=300)
+        image_label.pack(pady=5)
+
+        # ===== Label لعرض المؤشر (Image 1 of X) =====
+        counter_label = ctk.CTkLabel(frame, text="")
+        counter_label.pack()
+
+        def make_update_func(images, image_label, counter_label, index_var):
+            def update():
+                idx = index_var.get()
+                if 0 <= idx < len(images):
+                    image_label.configure(image=images[idx], text="")
+                    image_label.image = images[idx]
+                    counter_label.configure(text=f"Image {idx+1} of {len(images)}")
+                else:
+                    image_label.configure(image=None, text="No Image")
+                    counter_label.configure(text="")
+            return update
+
+        update_image = make_update_func(images, image_label, counter_label, index_var)
+        update_image()
+
+        # ===== أزرار التنقل =====
+        btn_frame = ctk.CTkFrame(frame)
+        btn_frame.pack(pady=5)
+
+        def make_prev_func(index_var, update_func):
+            def prev():
+                if index_var.get() > 0:
+                    index_var.set(index_var.get() - 1)
+                    update_func()
+            return prev
+
+        def make_next_func(index_var, images, update_func):
+            def next():
+                if index_var.get() < len(images) - 1:
+                    index_var.set(index_var.get() + 1)
+                    update_func()
+            return next
+
+        prev_btn = ctk.CTkButton(btn_frame, text="⏮ Previous", command=make_prev_func(index_var, update_image))
+        prev_btn.pack(side="left", padx=5)
+
+        next_btn = ctk.CTkButton(btn_frame, text="Next ⏭", command=make_next_func(index_var, images, update_image))
+        next_btn.pack(side="right", padx=5)
+
+        # ===== معلومات الحالة =====
         info_text = (
-            f"Name: {case['Name']}\n"
-            f"Date: {case['Date'].strftime('%Y-%m-%d')}\n"
-            f"Study ID: {case['StudyID']}\n"
-            f"Modality: {case['Modality']}\n"
-            f"Dose (mSv): {case['mSv']:.2f}\n"
-            f"Accumulated Dose: {case.get('AccumulatedDose', 0):.2f}\n"
-            f"Dose Per Year: {case.get('DosePerYear', 0):.2f}"
+            f"👤 Name: {case['Name']}\n"
+            f"📅 Date: {case['Date'].strftime('%Y-%m-%d')}\n"
+            f"🆔 Study ID: {case['StudyID']}\n"
+            f"📷 Modality: {case['Modality']}\n"
+            f"💉 Dose (mSv): {case['mSv']:.2f}\n"
+            f"📊 Accumulated Dose: {case.get('AccumulatedDose', 0):.2f}\n"
+            f"📆 Dose Per Year: {case.get('DosePerYear', 0):.2f}"
         )
-        label_info = ctk.CTkLabel(frame, text=info_text, justify="left")
-        label_info.pack(pady=5)
+        label_info = ctk.CTkLabel(frame, text=info_text, justify="left", anchor="w")
+        label_info.pack(pady=10)
 
     for i in range(len(selected)):
         container.grid_columnconfigure(i, weight=1)
+
+
+
+
+
+
+
+
+
+
+def show_case_images(case):
+    window = ctk.CTkToplevel()
+    window.title(f"Images for {case['Name']} - {case['Date'].strftime('%Y-%m-%d')}")
+
+    index = 0
+
+    img_label = ctk.CTkLabel(window)
+    img_label.pack(padx=10, pady=10)
+
+    info_label = ctk.CTkLabel(window, text=f"Patient: {case['Name']}\nStudy Date: {case['Date'].strftime('%Y-%m-%d')}\nModality: {case['Modality']}")
+    info_label.pack(padx=10, pady=10)
+
+    def update_image():
+        nonlocal index
+        if 0 <= index < len(case['Images']):
+            img_label.configure(image=case['Images'][index])
+            img_label.image = case['Images'][index]  # لمنع الصورة من الإزالة من الذاكرة
+        else:
+            img_label.configure(text="No Image")
+
+    def next_img():
+        nonlocal index
+        if index < len(case['Images']) - 1:
+            index += 1
+            update_image()
+
+    def prev_img():
+        nonlocal index
+        if index > 0:
+            index -= 1
+            update_image()
+
+    btn_frame = ctk.CTkFrame(window)
+    btn_frame.pack(pady=10)
+
+    prev_btn = ctk.CTkButton(btn_frame, text="Previous", command=prev_img)
+    prev_btn.pack(side="left", padx=10)
+
+    next_btn = ctk.CTkButton(btn_frame, text="Next", command=next_img)
+    next_btn.pack(side="right", padx=10)
+
+    update_image()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 def update_selected_cases():
     selected_cases.clear()
