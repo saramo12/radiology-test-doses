@@ -1,0 +1,8 @@
+MSH|^~\&|RadiologySystem|Hospital|PACS|Hospital|20250617151339||ORM^O01|409131|P|2.3
+PID|||409131||ALAA EL DEEN MOHAMED SALEH|||19860329|M
+OBR|||409131||CT|||||20250610
+OBX|1|NM|CTDIvol||0.17|mGy
+OBX|2|NM|DLP||0.00|mGy*cm
+OBX|3|NM|Dose_mSv||0.00|mSv
+OBX|4|NM|AccumulatedDose||0.00|mSv
+OBX|5|NM|DosePerYear||0.00|mSv

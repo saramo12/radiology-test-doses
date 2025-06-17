@@ -1,0 +1,8 @@
+MSH|^~\&|RadiologySystem|Hospital|PACS|Hospital|20250617151420||ORM^O01|408016|P|2.3
+PID|||408016||MAHJOUB - MAHJOUB|||19970704|M
+OBR|||408016||CT|||||20250604
+OBX|1|NM|CTDIvol||0.17|mGy
+OBX|2|NM|DLP||0.00|mGy*cm
+OBX|3|NM|Dose_mSv||0.00|mSv
+OBX|4|NM|AccumulatedDose||0.00|mSv
+OBX|5|NM|DosePerYear||0.00|mSv

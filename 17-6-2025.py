@@ -243,7 +243,7 @@ def process_dicom_files(files):
             except:
                 date_obj = datetime.now()
 
-            msv = ctdi * 0.014
+            msv = ctdi * 0.014  # dose in mSv
 
             matched_key = None
             for existing in existing_keys:
@@ -251,28 +251,25 @@ def process_dicom_files(files):
                     matched_key = existing
                     break
 
-            key = matched_key if matched_key else (name, date_obj.date(), getattr(ds, "StudyID", ""), getattr(ds, "AccessionNumber", ""))
+            key = matched_key if matched_key else (
+                name, date_obj.date(), getattr(ds, "StudyID", ""), getattr(ds, "AccessionNumber", "")
+            )
 
-            # تحويل بكسل الصورة لصورة يمكن عرضها
             img = None
             if 'PixelData' in ds:
-                try:
-                    array = ds.pixel_array
+                arr = ds.pixel_array
 
-                    # معالجة الصور اللي مش من نوع uint8
-                    if array.dtype != np.uint8:
-                        array = np.uint8((array - np.min(array)) / (np.max(array) - np.min(array)) * 255)
+                # تحويل الصورة إلى صيغة تدعمها PIL إذا كانت مش مدعومة
+                if arr.dtype != 'uint8':
+                    arr = (arr / arr.max() * 255).astype('uint8')  # Normalize to 0-255
 
-                    img_pil = Image.fromarray(array)
+                img_pil = Image.fromarray(arr)
 
-                    # تحويل الـ mode لو غير مدعوم
-                    if img_pil.mode not in ("L", "RGB"):
-                        img_pil = img_pil.convert("L")
+                if img_pil.mode not in ["L", "RGB"]:
+                    img_pil = img_pil.convert("L")  # أو "RGB" حسب احتياجك
 
-                    img_pil.thumbnail((400, 400))  # thumbnail لكن نحافظ على تفاصيل الصورة نسبيا
-                    img = ImageTk.PhotoImage(img_pil)
-                except Exception as e:
-                    print(f"Error loading image from {path}: {e}")
+                img_pil.thumbnail((400, 400))
+                img = ImageTk.PhotoImage(img_pil)
             if key not in temp_cases:
                 data_dict = {
                     "Name": name,
@@ -291,7 +288,6 @@ def process_dicom_files(files):
                 }
                 temp_cases[key] = data_dict
 
-            # أضف الصورة لقائمة الصور في الحالة حتى لو الحالة موجودة مسبقًا
             if img is not None:
                 temp_cases[key]["Images"].append(img)
 
@@ -304,7 +300,8 @@ def process_dicom_files(files):
             messagebox.showerror("Error", f"Failed to process file {path}.\nError: {e}")
 
     all_data.extend(temp_cases.values())
-    # ======= حساب وتحديث AccumulatedDose و DosePerYear =======
+
+    # ✅ حساب AccumulatedDose و DosePerYear بدون تقريب
     patient_records = {}
     for data in all_data:
         study_id = data["StudyID"]
@@ -320,7 +317,7 @@ def process_dicom_files(files):
         total = 0
         for date, dose in records:
             total += dose
-            accumulated_dose_dict[(study_id, date)] = round(total, 2)
+            accumulated_dose_dict[(study_id, date)] = total  # no rounding
 
     dose_per_year_dict = {}
     for study_id, records in patient_records.items():
@@ -328,7 +325,7 @@ def process_dicom_files(files):
         for current_date, _ in records:
             year_start = current_date - timedelta(days=364)
             total_year = sum(dose for date, dose in records if year_start <= date <= current_date)
-            dose_per_year_dict[(study_id, current_date)] = round(total_year, 2)
+            dose_per_year_dict[(study_id, current_date)] = total_year  # no rounding
 
     for data in all_data:
         sid = data["StudyID"]
@@ -336,10 +333,7 @@ def process_dicom_files(files):
         data["AccumulatedDose"] = accumulated_dose_dict.get((sid, dt), 0)
         data["DosePerYear"] = dose_per_year_dict.get((sid, dt), 0)
 
-    # ✅ عرض البيانات بعد ما كل حاجة اتحدثت
     display_text_data()
-    # ============= تحديث AccumulatedDose و DosePerYear =============
-
 # ================================================================
 # عدل دالة read_dicom_files الحالية لتستخدم process_dicom_files:
 def read_dicom_files():
