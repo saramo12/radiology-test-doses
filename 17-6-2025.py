@@ -3,6 +3,8 @@ from tkinter import filedialog, messagebox, simpledialog
 from PIL import Image, ImageTk
 import pydicom
 import os
+import numpy as np
+
 from datetime import datetime
 from datetime import datetime, timedelta
 from pydicom.errors import InvalidDicomError
@@ -254,10 +256,23 @@ def process_dicom_files(files):
             # تحويل بكسل الصورة لصورة يمكن عرضها
             img = None
             if 'PixelData' in ds:
-                img_pil = Image.fromarray(ds.pixel_array)
-                img_pil.thumbnail((400, 400))
-                img = ImageTk.PhotoImage(img_pil)
+                try:
+                    array = ds.pixel_array
 
+                    # معالجة الصور اللي مش من نوع uint8
+                    if array.dtype != np.uint8:
+                        array = np.uint8((array - np.min(array)) / (np.max(array) - np.min(array)) * 255)
+
+                    img_pil = Image.fromarray(array)
+
+                    # تحويل الـ mode لو غير مدعوم
+                    if img_pil.mode not in ("L", "RGB"):
+                        img_pil = img_pil.convert("L")
+
+                    img_pil.thumbnail((400, 400))  # thumbnail لكن نحافظ على تفاصيل الصورة نسبيا
+                    img = ImageTk.PhotoImage(img_pil)
+                except Exception as e:
+                    print(f"Error loading image from {path}: {e}")
             if key not in temp_cases:
                 data_dict = {
                     "Name": name,
