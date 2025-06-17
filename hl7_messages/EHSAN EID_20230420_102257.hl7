@@ -1,4 +1,4 @@
-MSH|^~\&|RadiologySystem|Hospital|PACS|Hospital|20250616175039||ORM^O01|102257|P|2.3
+MSH|^~\&|RadiologySystem|Hospital|PACS|Hospital|20250617110752||ORM^O01|102257|P|2.3
 PID|||102257||EHSAN EID||||
 OBR|||102257||CT|||||20230420
 OBX|1|NM|CTDIvol||33.30|mGy
