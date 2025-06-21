@@ -1,5 +1,7 @@
 import os
 import pydicom
+import tkinter as tk
+from tkinter import filedialog, messagebox
 
 def is_dose_report(ds):
     return (
@@ -42,9 +44,12 @@ def get_conversion_factor(region_text):
     else:
         return 0.015  # default
 
-def process_case_folder(folder_path):
-    dose_report = None
+def process_case_folder_gui():
+    folder_path = filedialog.askdirectory(title="اختاري فولدر الحالة")
+    if not folder_path:
+        return
 
+    dose_report = None
     for fname in os.listdir(folder_path):
         path = os.path.join(folder_path, fname)
         if not os.path.isfile(path):
@@ -58,16 +63,35 @@ def process_case_folder(folder_path):
             continue
 
     if dose_report is None:
-        print("❌ Dose report not found.")
+        messagebox.showerror("خطأ", "لم يتم العثور على تقرير الجرعة (Dose Report).")
         return
 
     ctdi, dlp, region = extract_dose_info_from_report(dose_report)
     k = get_conversion_factor(region)
     effective_dose = dlp * k
+    patient = getattr(dose_report, "PatientName", "Unknown")
+    date = getattr(dose_report, "StudyDate", "")
 
-    print("✅ Patient:", getattr(dose_report, "PatientName", "Unknown"))
-    print("📅 Date:", getattr(dose_report, "StudyDate", ""))
-    print("🧠 Region:", region)
-    print("📏 CTDIvol:", ctdi)
-    print("📏 DLP:", dlp)
-    print("✅ Effective Dose (mSv):", round(effective_dose, 4))
+    result = (
+        f"✅ Patient: {patient}\n"
+        f"📅 Date: {date}\n"
+        f"🧠 Region: {region}\n"
+        f"📏 CTDIvol: {ctdi:.4f}\n"
+        f"📏 DLP: {dlp:.4f}\n"
+        f"🧮 k-factor: {k}\n"
+        f"✅ Effective Dose (mSv): {effective_dose:.5f}"
+    )
+    messagebox.showinfo("نتيجة الحساب", result)
+
+# واجهة المستخدم
+root = tk.Tk()
+root.title("حساب Effective Dose من Dose Report")
+root.geometry("400x200")
+
+label = tk.Label(root, text="اضغطي الزر لاختيار فولدر الحالة:", font=("Arial", 14))
+label.pack(pady=20)
+
+btn = tk.Button(root, text="اختيار فولدر", font=("Arial", 12), command=process_case_folder_gui)
+btn.pack(pady=10)
+
+root.mainloop()
