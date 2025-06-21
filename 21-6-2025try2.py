@@ -83,6 +83,7 @@ def process_case_folder_gui():
     )
     messagebox.showinfo("نتيجة الحساب", result)
 
+
 # واجهة المستخدم
 root = tk.Tk()
 root.title("حساب Effective Dose من Dose Report")
