@@ -3,7 +3,7 @@ import pydicom
 import tkinter as tk
 from tkinter import filedialog, messagebox
 
-def is_dose_report(ds):
+def is_examination_report(ds):
     return (
         getattr(ds, "Modality", "") == "SR" and
         "DOSE" in str(getattr(ds, "SeriesDescription", "")).upper()
@@ -49,28 +49,28 @@ def process_case_folder_gui():
     if not folder_path:
         return
 
-    dose_report = None
+    examination_report = None
     for fname in os.listdir(folder_path):
         path = os.path.join(folder_path, fname)
         if not os.path.isfile(path):
             continue
         try:
             ds = pydicom.dcmread(path)
-            if is_dose_report(ds):
-                dose_report = ds
+            if is_examination_report(ds):
+                examination_report = ds
                 break
         except:
             continue
 
-    if dose_report is None:
+    if examination_report is None:
         messagebox.showerror("خطأ", "لم يتم العثور على تقرير الجرعة (Dose Report).")
         return
 
-    ctdi, dlp, region = extract_dose_info_from_report(dose_report)
+    ctdi, dlp, region = extract_dose_info_from_report(examination_report)
     k = get_conversion_factor(region)
     effective_dose = dlp * k
-    patient = getattr(dose_report, "PatientName", "Unknown")
-    date = getattr(dose_report, "StudyDate", "")
+    patient = getattr(examination_report, "PatientName", "Unknown")
+    date = getattr(examination_report, "StudyDate", "")
 
     result = (
         f"✅ Patient: {patient}\n"
