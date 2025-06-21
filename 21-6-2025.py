@@ -328,10 +328,10 @@ def process_dicom_files(files):
             dose_per_year_dict[(patient_id, current_date)] = total_year  # no rounding
 
     for data in all_data:
-        sid = data["PatientID"]
+        pid = data["PatientID"]
         dt = data["Date"]
-        data["AccumulatedDose"] = accumulated_dose_dict.get((sid, dt), 0)
-        data["DosePerYear"] = dose_per_year_dict.get((sid, dt), 0)
+        data["AccumulatedDose"] = accumulated_dose_dict.get((pid, dt), 0)
+        data["DosePerYear"] = dose_per_year_dict.get((pid, dt), 0)
 
     display_text_data()
 # ================================================================
@@ -428,7 +428,7 @@ def display_text_data():
             "select": 0,
             "date": 1,
             "name": 2,
-            "studyid": 3,
+            "patientid": 3,
             "modality": 4,
             "dose": 5,
             "accumulated": 6,
@@ -442,7 +442,7 @@ def display_text_data():
             "select": 0,
             "name": 1,
             "date": 2,
-            "studyid": 3,
+            "patientid": 3,
             "modality": 4,
             "dose": 5,
             "accumulated": 6,
