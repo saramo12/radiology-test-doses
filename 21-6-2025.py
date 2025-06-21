@@ -861,7 +861,6 @@ end_date_var = ctk.StringVar()
 ctk.CTkLabel(filters_frame, text="To Date:", text_color="black").pack(side="left", padx=(0, 5))
 ctk.CTkEntry(filters_frame, placeholder_text="YYYY-MM-DD", textvariable=end_date_var, width=130).pack(side="left")
 end_date_var.trace_add("write", lambda *args: display_text_data())
-
 # محتوى البيانات
 # shadow frame (أسود فاتح كخلفية خفيفة)
 shadow_frame = ctk.CTkFrame(root, fg_color="#416dcc", corner_radius=12)
