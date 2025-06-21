@@ -59,9 +59,9 @@ COMMON_VARIANTS = {
 # OBR|||{study_id}^{accession}||{modality}|||||{date}
 # OBX|1|NM|CTDIvol||{ctdi}|mGy|||
 # OBX|2|NM|DLP||{dlp}|mGy*cm|||
-# OBX|3|NM|Dose_mSv||{msv:.2f}|mSv|||
-# OBX|4|NM|AccumulatedDose||{accumulated_dose:.2f}|mSv|||
-# OBX|5|NM|DosePerYear||{dose_per_year:.2f}|mSv|||
+# OBX|3|NM|Dose_mSv||{msv:.5f}|mSv|||
+# OBX|4|NM|AccumulatedDose||{accumulated_dose:.5f}|mSv|||
+# OBX|5|NM|DosePerYear||{dose_per_year:.5f}|mSv|||
 # """
 #
 # return hl7_message
@@ -82,11 +82,11 @@ def convert_to_hl7_from_table(data):
     return f"""MSH|^~\\&|RadiologySystem|Hospital|PACS|Hospital|{datetime.now().strftime('%Y%m%d%H%M%S')}||ORM^O01|{data.get("PatientID", "")}|P|2.3
 PID|||{data.get("PatientID", "")}||{data.get("Name", "")}|||{data.get("DOB", "")}|{data.get("Sex", "")}
 OBR|||{data.get("PatientID", "")}||{data.get("Modality", "")}|||||{data.get("Date").strftime('%Y%m%d')}
-OBX|1|NM|CTDIvol||{data.get("CTDIvol", 0):.2f}|mGy
-OBX|2|NM|DLP||{data.get("DLP", 0):.2f}|mGy*cm
-OBX|3|NM|Dose_mSv||{data.get("mSv", 0):.2f}|mSv
-OBX|4|NM|AccumulatedDose||{accumulated_dose:.2f}|mSv
-OBX|5|NM|DosePerYear||{dose_per_year:.2f}|mSv
+OBX|1|NM|CTDIvol||{data.get("CTDIvol", 0):.5f}|mGy
+OBX|2|NM|DLP||{data.get("DLP", 0):.5f}|mGy*cm
+OBX|3|NM|Dose_mSv||{data.get("mSv", 0):.5f}|mSv
+OBX|4|NM|AccumulatedDose||{accumulated_dose:.5f}|mSv
+OBX|5|NM|DosePerYear||{dose_per_year:.5f}|mSv
 """
 # def show_hl7_for_selected():
 #     selected = [data for var, data in check_vars if var.get()]
@@ -193,20 +193,56 @@ def is_same_person(name1, name2, threshold=85):
     return matches >= len(shorter) - 1  # يسمح باختلاف بسيط
 
 
+# def read_dicom_folder():
+#     folders = filedialog.askdirectory()
+#     if not folders:
+#         return
+
+#     dicom_files = []
+
+#     # البحث داخل المجلد والمجلدات الفرعية فقط عن ملفات DICOM السليمة
+#     for root_dir, dirs, files in os.walk(folders):
+#         for file in files:
+#             if file.lower().endswith(".dcm"):
+#                 file_path = os.path.join(root_dir, file)
+#                 try:
+#                     ds = pydicom.dcmread(file_path, stop_before_pixels=True)  # نقرأ الرأس فقط للتأكد
+#                     dicom_files.append(file_path)
+#                 except InvalidDicomError:
+#                     print(f"Skipped invalid DICOM file: {file_path}")
+#                 except Exception as e:
+#                     print(f"Error reading file {file_path}: {e}")
+
+#     if not dicom_files:
+#         messagebox.showinfo("No DICOM Files", "No valid DICOM files found in the selected folder.")
+#         return
+
+#     process_dicom_files(dicom_files)
+
+
+def is_dicom(file_path):
+    """يتأكد إن الملف DICOM من محتواه الداخلي، مش من اسمه"""
+    try:
+        with open(file_path, 'rb') as f:
+            f.seek(128)
+            return f.read(4) == b'DICM'
+    except:
+        return False
+
 def read_dicom_folder():
     folders = filedialog.askdirectory()
     if not folders:
         return
-
     dicom_files = []
-
-    # البحث داخل المجلد والمجلدات الفرعية فقط عن ملفات DICOM السليمة
     for root_dir, dirs, files in os.walk(folders):
         for file in files:
-            if file.lower().endswith(".dcm"):
-                file_path = os.path.join(root_dir, file)
+            file_path = os.path.join(root_dir, file)
+            if not os.path.isfile(file_path):
+                continue
+
+            if is_dicom(file_path):  # هنا بنفحصه من جوه مش من الامتداد
                 try:
-                    ds = pydicom.dcmread(file_path, stop_before_pixels=True)  # نقرأ الرأس فقط للتأكد
+                    ds = pydicom.dcmread(file_path, stop_before_pixels=True)
                     dicom_files.append(file_path)
                 except InvalidDicomError:
                     print(f"Skipped invalid DICOM file: {file_path}")
@@ -218,6 +254,26 @@ def read_dicom_folder():
         return
 
     process_dicom_files(dicom_files)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 def process_dicom_files(files):
     if not files:
         return
@@ -243,7 +299,29 @@ def process_dicom_files(files):
             except:
                 date_obj = datetime.now()
 
-            msv = ctdi * 0.014  # dose in mSv
+            # msv = ctdi * 0.014  # dose in mSv
+            # لو DLP موجود، استخدمه مباشرة
+            if dlp > 0:
+                # Estimate body region from StudyDescription
+                study_desc = getattr(ds, "StudyDescription", "").lower()
+                if "head" in study_desc or "brain" in study_desc:
+                    k = 0.0021
+                elif "neck" in study_desc:
+                    k = 0.0059
+                elif "chest" in study_desc:
+                    k = 0.014
+                elif "abdomen" in study_desc or "pelvis" in study_desc:
+                    k = 0.015
+                else:
+                    k = 0.015  # default/fallback value
+
+                msv = dlp * k
+            # لو مفيش DLP، نحاول نحسبه من CTDIvol × طول المسح
+            else:
+                length = float(getattr(ds, "TotalCollimationWidth", 0))  # أو أي تاج تاني للطول
+                dlp = ctdi * length
+                k = 0.015  # fallback default
+                msv = dlp * k
 
             matched_key = None
             for existing in existing_keys:
@@ -277,6 +355,7 @@ def process_dicom_files(files):
                     "CTDIvol": ctdi,
                     "DLP": dlp,
                     "mSv": msv,
+                    "kFactor": k,
                     "Sex": getattr(ds, "PatientSex", ""),
                     "DOB": getattr(ds, "PatientBirthDate", ""),
                     "PatientID": getattr(ds, "PatientID", ""),
@@ -490,9 +569,10 @@ def display_text_data():
 
         add_label(row, col_indices["patientid"], str(data["PatientID"]))
         add_label(row, col_indices["modality"], data["Modality"])
-        add_label(row, col_indices["dose"], f"{data['mSv']:.2f}")
-        add_label(row, col_indices["accumulated"], f"{accumulated_dose:.2f}")
-        add_label(row, col_indices["per_year"], f"{dose_per_year:.2f}")
+        add_label(row, col_indices["dose"], f"{data['mSv']:.5f}")
+
+        add_label(row, col_indices["accumulated"], f"{accumulated_dose:.5f}")
+        add_label(row, col_indices["per_year"], f"{dose_per_year:.5f}")
 
     # ضبط أوزان الأعمدة لجعلها ريسبونسف
     for col in range(len(headers)):
@@ -550,9 +630,9 @@ def show_selected_cases_images():
 #             f"Date: {case['Date'].strftime('%Y-%m-%d')}\n"
 #             f"Study ID: {case['StudyID']}\n"
 #             f"Modality: {case['Modality']}\n"
-#             f"Dose (mSv): {case['mSv']:.2f}\n"
-#             f"Accumulated Dose: {case.get('AccumulatedDose', 0):.2f}\n"
-#             f"Dose Per Year: {case.get('DosePerYear', 0):.2f}"
+#             f"Dose (mSv): {case['mSv']:.5f}\n"
+#             f"Accumulated Dose: {case.get('AccumulatedDose', 0):.5f}\n"
+#             f"Dose Per Year: {case.get('DosePerYear', 0):.5f}"
 #         )
 #         label_info = ctk.CTkLabel(frame, text=info_text, justify="left")
 #         label_info.pack(pady=5)
@@ -588,8 +668,8 @@ def show_case_images(case):
         f"🆔 Patient ID: {case['PatientID']}\n"
         f"📷 Modality: {case['Modality']}\n"
         f"📅 Date: {case['Date'].strftime('%Y-%m-%d')}\n"
-        f"💉 Dose (mSv): {case['mSv']:.2f}\n"
-        f"📊 Accumulated Dose: {case.get('AccumulatedDose', 0):.2f}"
+        f"💉 Dose (mSv): {case['mSv']:.5f}\n"
+        f"📊 Accumulated Dose: {case.get('AccumulatedDose', 0):.5f}"
     )
     info_label = ctk.CTkLabel(window, text=info_text, justify="left", anchor="w")
     info_label.pack(pady=5)
@@ -732,7 +812,7 @@ def show_selected_cases():
             f"🆔 ID: {data['PatientID']}\n"
             f"📅 Date: {data['Date'].strftime('%Y-%m-%d')}\n"
             f"🧬 Type: {data['Modality']}\n"
-            f"☢ Dose: {data['mSv']:.2f} mSv\n"
+            f"☢ Dose: {data['mSv']:.5f} mSv\n"
             f"🧪 CTDIvol: {data['CTDIvol']} mGy\n"
             f"📏 DLP: {data['DLP']} mGy·cm\n"
             f"⚧ Sex: {data['Sex']}\n"
