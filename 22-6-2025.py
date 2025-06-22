@@ -291,18 +291,33 @@ def process_dicom_files(files):
         try:
             ds = pydicom.dcmread(path)
             name = str(getattr(ds, "PatientName", "Unknown"))
-            ctdi = float(getattr(ds, "CTDIvol", 0))
-            dlp = float(getattr(ds, "DLP", 0))
             date_str = getattr(ds, "StudyDate", "00000000")
             try:
                 date_obj = datetime.strptime(date_str, "%Y%m%d")
             except:
                 date_obj = datetime.now()
 
-            # msv = ctdi * 0.014  # dose in mSv
-            # لو DLP موجود، استخدمه مباشرة
+            # استخراج CTDIvol و DLP من ملفات الـ Patient Protocol فقط
+            protocol_ctdi = 0
+            protocol_dlp = 0
+
+            related_files = [f for f in files if name in str(pydicom.dcmread(f, stop_before_pixels=True).get("PatientName", ""))]
+            for f in related_files:
+                try:
+                    d = pydicom.dcmread(f, stop_before_pixels=True)
+                    desc = str(getattr(d, "SeriesDescription", "")).lower()
+                    pname = str(getattr(d, "ProtocolName", "")).lower()
+                    if "patient protocol" in desc or "patient protocol" in pname:
+                        protocol_ctdi = float(getattr(d, "CTDIvol", 0))
+                        protocol_dlp = float(getattr(d, "DLP", 0))
+                        break
+                except:
+                    continue
+
+            ctdi = protocol_ctdi
+            dlp = protocol_dlp
+
             if dlp > 0:
-                # Estimate body region from StudyDescription
                 study_desc = getattr(ds, "StudyDescription", "").lower()
                 if "head" in study_desc or "brain" in study_desc:
                     k = 0.0021
@@ -313,14 +328,12 @@ def process_dicom_files(files):
                 elif "abdomen" in study_desc or "pelvis" in study_desc:
                     k = 0.015
                 else:
-                    k = 0.015  # default/fallback value
-
+                    k = 0.015
                 msv = dlp * k
-            # لو مفيش DLP، نحاول نحسبه من CTDIvol × طول المسح
             else:
-                length = float(getattr(ds, "TotalCollimationWidth", 0))  # أو أي تاج تاني للطول
+                length = float(getattr(ds, "TotalCollimationWidth", 0))
                 dlp = ctdi * length
-                k = 0.015  # fallback default
+                k = 0.015
                 msv = dlp * k
 
             matched_key = None
@@ -328,20 +341,22 @@ def process_dicom_files(files):
                 if is_same_person(name, existing[0]) and existing[1] == date_obj.date():
                     matched_key = existing
                     break
+
             key = matched_key if matched_key else (
                 name, date_obj.date(), getattr(ds, "PatientID", ""), getattr(ds, "AccessionNumber", "")
             )
+
             img = None
             if 'PixelData' in ds:
                 arr = ds.pixel_array
-                # تحويل الصورة إلى صيغة تدعمها PIL إذا كانت مش مدعومة
                 if arr.dtype != 'uint8':
-                    arr = (arr / arr.max() * 255).astype('uint8')  # Normalize to 0-255
+                    arr = (arr / arr.max() * 255).astype('uint8')
                 img_pil = Image.fromarray(arr)
                 if img_pil.mode not in ["L", "RGB"]:
-                    img_pil = img_pil.convert("L")  # أو "RGB" حسب احتياجك
+                    img_pil = img_pil.convert("L")
                 img_pil.thumbnail((400, 400))
                 img = ImageTk.PhotoImage(img_pil)
+
             if key not in temp_cases:
                 data_dict = {
                     "Name": name,
@@ -390,7 +405,7 @@ def process_dicom_files(files):
         total = 0
         for date, dose in records:
             total += dose
-            accumulated_dose_dict[(patient_id, date)] = total  # no rounding
+            accumulated_dose_dict[(patient_id, date)] = total
 
     dose_per_year_dict = {}
     for patient_id, records in patient_records.items():
@@ -398,7 +413,7 @@ def process_dicom_files(files):
         for current_date, _ in records:
             year_start = current_date - timedelta(days=364)
             total_year = sum(dose for date, dose in records if year_start <= date <= current_date)
-            dose_per_year_dict[(patient_id, current_date)] = total_year  # no rounding
+            dose_per_year_dict[(patient_id, current_date)] = total_year
 
     for data in all_data:
         pid = data["PatientID"]
@@ -407,6 +422,7 @@ def process_dicom_files(files):
         data["DosePerYear"] = dose_per_year_dict.get((pid, dt), 0)
 
     display_text_data()
+
 # ================================================================
 # عدل دالة read_dicom_files الحالية لتستخدم process_dicom_files:
 def read_dicom_files():
