@@ -336,7 +336,6 @@ def process_dicom_files(files):
             img = None
             if 'PixelData' in ds:
                 arr = ds.pixel_array
-
                 # تحويل الصورة إلى صيغة تدعمها PIL إذا كانت مش مدعومة
                 if arr.dtype != 'uint8':
                     arr = (arr / arr.max() * 255).astype('uint8')  # Normalize to 0-255
@@ -954,3 +953,4 @@ text_color="blue", font=ctk.CTkFont(size=20, weight="bold"), cursor="hand2")
 welcome_label.pack(expand=True)
 welcome_label.bind("<Button-1>", lambda e: read_dicom_files())
 root.mainloop()
+
