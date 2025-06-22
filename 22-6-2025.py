@@ -339,10 +339,8 @@ def process_dicom_files(files):
                 if arr.dtype != 'uint8':
                     arr = (arr / arr.max() * 255).astype('uint8')  # Normalize to 0-255
                 img_pil = Image.fromarray(arr)
-
                 if img_pil.mode not in ["L", "RGB"]:
                     img_pil = img_pil.convert("L")  # أو "RGB" حسب احتياجك
-
                 img_pil.thumbnail((400, 400))
                 img = ImageTk.PhotoImage(img_pil)
             if key not in temp_cases:
