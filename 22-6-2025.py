@@ -274,285 +274,131 @@ def read_dicom_folder():
 
 
 
-# def process_dicom_files(files):
-#     if not files:
-#         return
-
-#     for widget in content_frame.winfo_children():
-#         widget.destroy()
-
-#     temp_cases = {}
-#     existing_keys = [
-#         (d["Name"], d["Date"].date(), d["PatientID"], d.get("Accession", ""))
-#         for d in all_data
-#     ]
-
-#     for path in files:
-#         try:
-#             ds = pydicom.dcmread(path)
-#             name = str(getattr(ds, "PatientName", "Unknown"))
-#             ctdi = float(getattr(ds, "CTDIvol", 0))
-#             dlp = float(getattr(ds, "DLP", 0))
-#             date_str = getattr(ds, "StudyDate", "00000000")
-#             try:
-#                 date_obj = datetime.strptime(date_str, "%Y%m%d")
-#             except:
-#                 date_obj = datetime.now()
-
-#             # msv = ctdi * 0.014  # dose in mSv
-#             # لو DLP موجود، استخدمه مباشرة
-#             if dlp > 0:
-#                 # Estimate body region from StudyDescription
-#                 study_desc = getattr(ds, "StudyDescription", "").lower()
-#                 if "head" in study_desc or "brain" in study_desc:
-#                     k = 0.0021
-#                 elif "neck" in study_desc:
-#                     k = 0.0059
-#                 elif "chest" in study_desc:
-#                     k = 0.014
-#                 elif "abdomen" in study_desc or "pelvis" in study_desc:
-#                     k = 0.015
-#                 else:
-#                     k = 0.015  # default/fallback value
-
-#                 msv = dlp * k
-#             # لو مفيش DLP، نحاول نحسبه من CTDIvol × طول المسح
-#             else:
-#                 length = float(getattr(ds, "TotalCollimationWidth", 0))  # أو أي تاج تاني للطول
-#                 dlp = ctdi * length
-#                 k = 0.015  # fallback default
-#                 msv = dlp * k
-
-#             matched_key = None
-#             for existing in existing_keys:
-#                 if is_same_person(name, existing[0]) and existing[1] == date_obj.date():
-#                     matched_key = existing
-#                     break
-#             key = matched_key if matched_key else (
-#                 name, date_obj.date(), getattr(ds, "PatientID", ""), getattr(ds, "AccessionNumber", "")
-#             )
-#             img = None
-#             if 'PixelData' in ds:
-#                 arr = ds.pixel_array
-#                 # تحويل الصورة إلى صيغة تدعمها PIL إذا كانت مش مدعومة
-#                 if arr.dtype != 'uint8':
-#                     arr = (arr / arr.max() * 255).astype('uint8')  # Normalize to 0-255
-#                 img_pil = Image.fromarray(arr)
-#                 if img_pil.mode not in ["L", "RGB"]:
-#                     img_pil = img_pil.convert("L")  # أو "RGB" حسب احتياجك
-#                 img_pil.thumbnail((400, 400))
-#                 img = ImageTk.PhotoImage(img_pil)
-#             if key not in temp_cases:
-#                 data_dict = {
-#                     "Name": name,
-#                     "Date": date_obj,
-#                     "CTDIvol": ctdi,
-#                     "DLP": dlp,
-#                     "mSv": msv,
-#                     "kFactor": k,
-#                     "Sex": getattr(ds, "PatientSex", ""),
-#                     "DOB": getattr(ds, "PatientBirthDate", ""),
-#                     "PatientID": getattr(ds, "PatientID", ""),
-#                     "Accession": getattr(ds, "AccessionNumber", ""),
-#                     "Images": [],
-#                     "Path": path,
-#                     "Modality": getattr(ds, "Modality", "Unknown"),
-#                     "Dataset": ds
-#                 }
-#                 temp_cases[key] = data_dict
-
-#             if img is not None:
-#                 temp_cases[key]["Images"].append(img)
-
-#             hl7_msg = convert_to_hl7_from_table(temp_cases[key])
-#             hl7_filename = f"{HL7_DIR}/{name}_{date_obj.strftime('%Y%m%d')}_{temp_cases[key]['PatientID']}.hl7"
-#             with open(hl7_filename, "w") as f:
-#                 f.write(hl7_msg)
-
-#         except Exception as e:
-#             messagebox.showerror("Error", f"Failed to process file {path}.\nError: {e}")
-
-#     all_data.extend(temp_cases.values())
-
-#     # ✅ حساب AccumulatedDose و DosePerYear بدون تقريب
-#     patient_records = {}
-#     for data in all_data:
-#         patient_id = data["PatientID"]
-#         dose = data["mSv"]
-#         date = data["Date"]
-#         if patient_id not in patient_records:
-#             patient_records[patient_id] = []
-#         patient_records[patient_id].append((date, dose))
-
-#     accumulated_dose_dict = {}
-#     for patient_id, records in patient_records.items():
-#         records.sort()
-#         total = 0
-#         for date, dose in records:
-#             total += dose
-#             accumulated_dose_dict[(patient_id, date)] = total  # no rounding
-
-#     dose_per_year_dict = {}
-#     for patient_id, records in patient_records.items():
-#         records.sort()
-#         for current_date, _ in records:
-#             year_start = current_date - timedelta(days=364)
-#             total_year = sum(dose for date, dose in records if year_start <= date <= current_date)
-#             dose_per_year_dict[(patient_id, current_date)] = total_year  # no rounding
-
-#     for data in all_data:
-#         pid = data["PatientID"]
-#         dt = data["Date"]
-#         data["AccumulatedDose"] = accumulated_dose_dict.get((pid, dt), 0)
-#         data["DosePerYear"] = dose_per_year_dict.get((pid, dt), 0)
-
-#     display_text_data()
-
-
-
-
 def process_dicom_files(files):
     if not files:
         return
 
-    from collections import defaultdict
     for widget in content_frame.winfo_children():
         widget.destroy()
 
-    # تجميع الملفات حسب (PatientID, StudyDate)
-    grouped_cases = defaultdict(list)
+    temp_cases = {}
+    existing_keys = [
+        (d["Name"], d["Date"].date(), d["PatientID"], d.get("Accession", ""))
+        for d in all_data
+    ]
+
     for path in files:
         try:
-            ds = pydicom.dcmread(path, stop_before_pixels=True)
-            pid = getattr(ds, "PatientID", "")
+            ds = pydicom.dcmread(path)
+            name = str(getattr(ds, "PatientName", "Unknown"))
+            ctdi = float(getattr(ds, "CTDIvol", 0))
+            dlp = float(getattr(ds, "DLP", 0))
             date_str = getattr(ds, "StudyDate", "00000000")
             try:
                 date_obj = datetime.strptime(date_str, "%Y%m%d")
             except:
                 date_obj = datetime.now()
-            key = (pid, date_obj.date())
-            grouped_cases[key].append(path)
-        except:
-            continue
 
-    temp_cases = {}
+            # msv = ctdi * 0.014  # dose in mSv
+            # لو DLP موجود، استخدمه مباشرة
+            if dlp > 0:
+                # Estimate body region from StudyDescription
+                study_desc = getattr(ds, "StudyDescription", "").lower()
+                if "head" in study_desc or "brain" in study_desc:
+                    k = 0.0021
+                elif "neck" in study_desc:
+                    k = 0.0059
+                elif "chest" in study_desc:
+                    k = 0.014
+                elif "abdomen" in study_desc or "pelvis" in study_desc:
+                    k = 0.015
+                else:
+                    k = 0.015  # default/fallback value
 
-    for (pid, date), paths in grouped_cases.items():
-        patient_name = ""
-        accession = ""
-        sex = ""
-        dob = ""
-        modality = ""
-        study_id = ""
+                msv = dlp * k
+            # لو مفيش DLP، نحاول نحسبه من CTDIvol × طول المسح
+            else:
+                length = float(getattr(ds, "TotalCollimationWidth", 0))  # أو أي تاج تاني للطول
+                dlp = ctdi * length
+                k = 0.015  # fallback default
+                msv = dlp * k
 
-        ctdi = 0.0
-        dlp = 0.0
-        images = []
-        k = 0.015
+            matched_key = None
+            for existing in existing_keys:
+                if is_same_person(name, existing[0]) and existing[1] == date_obj.date():
+                    matched_key = existing
+                    break
+            key = matched_key if matched_key else (
+                name, date_obj.date(), getattr(ds, "PatientID", ""), getattr(ds, "AccessionNumber", "")
+            )
+            img = None
+            if 'PixelData' in ds:
+                arr = ds.pixel_array
+                # تحويل الصورة إلى صيغة تدعمها PIL إذا كانت مش مدعومة
+                if arr.dtype != 'uint8':
+                    arr = (arr / arr.max() * 255).astype('uint8')  # Normalize to 0-255
+                img_pil = Image.fromarray(arr)
+                if img_pil.mode not in ["L", "RGB"]:
+                    img_pil = img_pil.convert("L")  # أو "RGB" حسب احتياجك
+                img_pil.thumbnail((400, 400))
+                img = ImageTk.PhotoImage(img_pil)
+            if key not in temp_cases:
+                data_dict = {
+                    "Name": name,
+                    "Date": date_obj,
+                    "CTDIvol": ctdi,
+                    "DLP": dlp,
+                    "mSv": msv,
+                    "kFactor": k,
+                    "Sex": getattr(ds, "PatientSex", ""),
+                    "DOB": getattr(ds, "PatientBirthDate", ""),
+                    "PatientID": getattr(ds, "PatientID", ""),
+                    "Accession": getattr(ds, "AccessionNumber", ""),
+                    "Images": [],
+                    "Path": path,
+                    "Modality": getattr(ds, "Modality", "Unknown"),
+                    "Dataset": ds
+                }
+                temp_cases[key] = data_dict
 
-        protocol_found = False
+            if img is not None:
+                temp_cases[key]["Images"].append(img)
 
-        for path in paths:
-            try:
-                ds = pydicom.dcmread(path)
-                patient_name = str(getattr(ds, "PatientName", "Unknown"))
-                accession = getattr(ds, "AccessionNumber", "")
-                sex = getattr(ds, "PatientSex", "")
-                dob = getattr(ds, "PatientBirthDate", "")
-                modality = getattr(ds, "Modality", "")
-                study_id = getattr(ds, "StudyID", "")
+            hl7_msg = convert_to_hl7_from_table(temp_cases[key])
+            hl7_filename = f"{HL7_DIR}/{name}_{date_obj.strftime('%Y%m%d')}_{temp_cases[key]['PatientID']}.hl7"
+            with open(hl7_filename, "w") as f:
+                f.write(hl7_msg)
 
-                series_desc = str(getattr(ds, "SeriesDescription", ""))
-                protocol_name = str(getattr(ds, "ProtocolName", ""))
-                tags_combined = series_desc.lower() + " " + protocol_name.lower()
-
-                if ("protocol" in tags_combined or "patient protocol" in tags_combined) and not protocol_found:
-                    protocol_found = True
-                    ctdi = float(getattr(ds, "CTDIvol", 0))
-                    dlp_tag = ds.get((0x0018, 0x9345)) or ds.get((0x0018, 0x1400))  # Total DLP tag or fallback
-                    if dlp_tag:
-                        dlp = float(dlp_tag.value)
-                    else:
-                        dlp = float(getattr(ds, "DLP", 0))
-                
-                # إضافة الصور
-                if 'PixelData' in ds:
-                    arr = ds.pixel_array
-                    if arr.dtype != 'uint8':
-                        arr = (arr / arr.max() * 255).astype('uint8')
-                    img_pil = Image.fromarray(arr)
-                    if img_pil.mode not in ["L", "RGB"]:
-                        img_pil = img_pil.convert("L")
-                    img_pil.thumbnail((400, 400))
-                    img = ImageTk.PhotoImage(img_pil)
-                    images.append(img)
-            except:
-                continue
-
-        # fallback لو معرفناش المنطقة
-        study_desc = getattr(ds, "StudyDescription", "").lower()
-        if "head" in study_desc or "brain" in study_desc:
-            k = 0.0021
-        elif "neck" in study_desc:
-            k = 0.0059
-        elif "chest" in study_desc:
-            k = 0.014
-        elif "abdomen" in study_desc or "pelvis" in study_desc:
-            k = 0.015
-
-        msv = dlp * k
-
-        key = (patient_name, date, pid, accession)
-        temp_cases[key] = {
-            "Name": patient_name,
-            "Date": date,
-            "PatientID": pid,
-            "CTDIvol": ctdi,
-            "DLP": dlp,
-            "mSv": msv,
-            "kFactor": k,
-            "Sex": sex,
-            "DOB": dob,
-            "Accession": accession,
-            "Images": images,
-            "Path": paths[0],
-            "Modality": modality,
-            "StudyID": study_id,
-            "Dataset": ds
-        }
-
-        hl7_msg = convert_to_hl7_from_table(temp_cases[key])
-        hl7_filename = f"{HL7_DIR}/{patient_name}_{date.strftime('%Y%m%d')}_{pid}.hl7"
-        with open(hl7_filename, "w") as f:
-            f.write(hl7_msg)
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to process file {path}.\nError: {e}")
 
     all_data.extend(temp_cases.values())
 
-    # الجرعة التراكمية والسنوية
+    # ✅ حساب AccumulatedDose و DosePerYear بدون تقريب
     patient_records = {}
     for data in all_data:
-        pid = data["PatientID"]
+        patient_id = data["PatientID"]
         dose = data["mSv"]
         date = data["Date"]
-        if pid not in patient_records:
-            patient_records[pid] = []
-        patient_records[pid].append((date, dose))
+        if patient_id not in patient_records:
+            patient_records[patient_id] = []
+        patient_records[patient_id].append((date, dose))
 
     accumulated_dose_dict = {}
-    for pid, records in patient_records.items():
+    for patient_id, records in patient_records.items():
         records.sort()
         total = 0
         for date, dose in records:
             total += dose
-            accumulated_dose_dict[(pid, date)] = total
+            accumulated_dose_dict[(patient_id, date)] = total  # no rounding
 
     dose_per_year_dict = {}
-    for pid, records in patient_records.items():
+    for patient_id, records in patient_records.items():
         records.sort()
         for current_date, _ in records:
             year_start = current_date - timedelta(days=364)
             total_year = sum(dose for date, dose in records if year_start <= date <= current_date)
-            dose_per_year_dict[(pid, current_date)] = total_year
+            dose_per_year_dict[(patient_id, current_date)] = total_year  # no rounding
 
     for data in all_data:
         pid = data["PatientID"]
@@ -561,6 +407,8 @@ def process_dicom_files(files):
         data["DosePerYear"] = dose_per_year_dict.get((pid, dt), 0)
 
     display_text_data()
+
+
 
 
 
