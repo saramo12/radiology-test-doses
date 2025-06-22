@@ -332,14 +332,12 @@ def process_dicom_files(files):
             key = matched_key if matched_key else (
                 name, date_obj.date(), getattr(ds, "PatientID", ""), getattr(ds, "AccessionNumber", "")
             )
-
             img = None
             if 'PixelData' in ds:
                 arr = ds.pixel_array
                 # تحويل الصورة إلى صيغة تدعمها PIL إذا كانت مش مدعومة
                 if arr.dtype != 'uint8':
                     arr = (arr / arr.max() * 255).astype('uint8')  # Normalize to 0-255
-
                 img_pil = Image.fromarray(arr)
 
                 if img_pil.mode not in ["L", "RGB"]:
