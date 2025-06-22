@@ -328,7 +328,6 @@ def process_dicom_files(files):
                 if is_same_person(name, existing[0]) and existing[1] == date_obj.date():
                     matched_key = existing
                     break
-
             key = matched_key if matched_key else (
                 name, date_obj.date(), getattr(ds, "PatientID", ""), getattr(ds, "AccessionNumber", "")
             )
