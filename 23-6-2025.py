@@ -1,4 +1,4 @@
-2import customtkinter as ctk
+import customtkinter as ctk
 from tkinter import filedialog, messagebox, simpledialog
 from PIL import Image, ImageTk
 import pydicom
