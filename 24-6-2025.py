@@ -942,6 +942,7 @@ shadow_frame = ctk.CTkFrame(root, fg_color="#416dcc", corner_radius=12)
 shadow_frame.place(relx=0.14, rely=0.15, relwidth=0.80, relheight=0.70)
 # frame الأساسي فوق الـ shadow
 content_frame = ctk.CTkFrame(root, fg_color="#ffffff", corner_radius=10)
+
 content_frame.place(relx=0.15, rely=0.16, relwidth=0.78, relheight=0.68)
 # رسالة ترحيبية
 welcome_label = ctk.CTkLabel(content_frame, text="Click here to select DICOM files",
