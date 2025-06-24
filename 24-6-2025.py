@@ -11,7 +11,7 @@ import re
 from rapidfuzz import fuzz  # أسرع من fuzzywuzzy ويمكنك استبداله به
 import socket
 import pytesseract
-pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\tesseract-5.5.1\tesseract.exe"
+pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 
 ctk.set_appearance_mode("light")
 ctk.set_default_color_theme("dark-blue")
