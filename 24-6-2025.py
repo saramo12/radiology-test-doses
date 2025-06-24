@@ -271,8 +271,26 @@ def read_dicom_folder():
 
 
 
+def extract_total_dlp(ds):
+    if 'PixelData' not in ds:
+        return None
+
+    try:
+        arr = ds.pixel_array
+        if arr.dtype != 'uint8':
+            arr = (arr / arr.max() * 255).astype('uint8')
+        img = Image.fromarray(arr).convert("L")
+        text = pytesseract.image_to_string(img)
+
+        # تحسين الـ regex لاستخراج Total DLP
+        match = re.search(r"Total\s*DLP[:\s]*([0-9]+\.?[0-9]*)", text, re.IGNORECASE)
+        if match:
+            return float(match.group(1))
+    except Exception as e:
+        print("OCR error:", e)
+    return None
+
 def process_dicom_files(files):
-    
     if not files:
         return
 
@@ -289,8 +307,6 @@ def process_dicom_files(files):
         try:
             ds = pydicom.dcmread(path)
             name = str(getattr(ds, "PatientName", "Unknown"))
-            ctdi = float(getattr(ds, "CTDIvol", 0))
-            dlp = float(getattr(ds, "DLP", 0))
             date_str = getattr(ds, "StudyDate", "00000000")
             try:
                 date_obj = datetime.strptime(date_str, "%Y%m%d")
@@ -299,51 +315,43 @@ def process_dicom_files(files):
 
             modality = getattr(ds, "Modality", "")
             series_desc = getattr(ds, "SeriesDescription", "").lower()
-            k = 0.015
+            study_desc = getattr(ds, "StudyDescription", "").lower()
+
+            k = 0.015  # default
+            dlp = 0
             msv = 0
 
-            # لو CT و في ملف Patient Protocol، نستخدم OCR لاستخراج DLP
             if modality == "CT" and "protocol" in series_desc:
-                if 'PixelData' in ds:
-                    arr = ds.pixel_array
-                    if arr.dtype != 'uint8':
-                        arr = (arr / arr.max() * 255).astype('uint8')
-                    img_pil = Image.fromarray(arr).convert("L")
-                    try:
-                        text = pytesseract.image_to_string(img_pil)
-                        match = re.search(r"Total\\s*DLP\\s*[:=]?\\s*(\\d+\\.?\\d*)", text, re.IGNORECASE)
-                        if match:
-                            dlp = float(match.group(1))
-                            k = 0.014  # Chest assumption
-                            msv = dlp * k
-                    except Exception as e:
-                        print("OCR Error:", e)
-            elif dlp > 0:
-                study_desc = getattr(ds, "StudyDescription", "").lower()
-                if "head" in study_desc or "brain" in study_desc:
-                    k = 0.0021
-                elif "neck" in study_desc:
-                    k = 0.0059
-                elif "chest" in study_desc:
-                    k = 0.014
-                elif "abdomen" in study_desc or "pelvis" in study_desc:
-                    k = 0.015
-                else:
-                    k = 0.015
-                msv = dlp * k
+                dlp = extract_total_dlp(ds)
+                if dlp:
+                    if "head" in study_desc or "brain" in study_desc:
+                        k = 0.0021
+                    elif "neck" in study_desc:
+                        k = 0.0059
+                    elif "chest" in study_desc:
+                        k = 0.014
+                    elif "abdomen" in study_desc or "pelvis" in study_desc:
+                        k = 0.015
+                    msv = dlp * k
+            elif modality.startswith("CR") or modality.startswith("DX"):
+                kvp = float(getattr(ds, "KVP", 0))
+                mas = float(getattr(ds, "Exposure", 0))
+                if mas == 0:
+                    current = float(getattr(ds, "XRayTubeCurrent", 0))
+                    time = float(getattr(ds, "ExposureTime", 0)) / 1000  # ms to sec
+                    mas = current * time
+                if kvp and mas:
+                    k = 0.02  # assumed for x-ray
+                    msv = kvp * mas * k
             else:
-                length = float(getattr(ds, "TotalCollimationWidth", 0))
-                dlp = ctdi * length
-                msv = dlp * k
+                continue  # تجاهل أي فحوصات مش مطابقة
 
-            matched_key = None
-            for existing in existing_keys:
-                if is_same_person(name, existing[0]) and existing[1] == date_obj.date():
-                    matched_key = existing
-                    break
-            key = matched_key if matched_key else (
-                name, date_obj.date(), getattr(ds, "PatientID", ""), getattr(ds, "AccessionNumber", "")
+            key = (
+                name, date_obj.date(),
+                getattr(ds, "PatientID", ""),
+                getattr(ds, "AccessionNumber", "")
             )
+
             img = None
             if 'PixelData' in ds:
                 arr = ds.pixel_array
@@ -354,11 +362,11 @@ def process_dicom_files(files):
                 img = ImageTk.PhotoImage(img_pil)
 
             if key not in temp_cases:
-                data_dict = {
+                temp_cases[key] = {
                     "Name": name,
                     "Date": date_obj,
-                    "CTDIvol": ctdi,
-                    "DLP": dlp,
+                    "CTDIvol": 0,
+                    "DLP": dlp or 0,
                     "mSv": msv,
                     "kFactor": k,
                     "Sex": getattr(ds, "PatientSex", ""),
@@ -370,9 +378,8 @@ def process_dicom_files(files):
                     "Modality": modality,
                     "Dataset": ds
                 }
-                temp_cases[key] = data_dict
 
-            if img is not None:
+            if img:
                 temp_cases[key]["Images"].append(img)
 
             hl7_msg = convert_to_hl7_from_table(temp_cases[key])
@@ -385,17 +392,15 @@ def process_dicom_files(files):
 
     all_data.extend(temp_cases.values())
 
-    # ✅ حساب AccumulatedDose و DosePerYear
+    # ✅ الحساب التراكمي والسنوي
     patient_records = {}
-    for data in all_data:
-        pid = data["PatientID"]
-        dose = data["mSv"]
-        date = data["Date"]
-        if pid not in patient_records:
-            patient_records[pid] = []
-        patient_records[pid].append((date, dose))
+    for d in all_data:
+        pid = d["PatientID"]
+        patient_records.setdefault(pid, []).append((d["Date"], d["mSv"]))
 
     accumulated_dose_dict = {}
+    dose_per_year_dict = {}
+
     for pid, records in patient_records.items():
         records.sort()
         total = 0
@@ -403,24 +408,18 @@ def process_dicom_files(files):
             total += dose
             accumulated_dose_dict[(pid, date)] = total
 
-    dose_per_year_dict = {}
-    for pid, records in patient_records.items():
-        records.sort()
         for current_date, _ in records:
             year_start = current_date - timedelta(days=364)
-            total_year = sum(dose for date, dose in records if year_start <= date <= current_date)
+            total_year = sum(d for date, d in records if year_start <= date <= current_date)
             dose_per_year_dict[(pid, current_date)] = total_year
 
-    for data in all_data:
-        pid = data["PatientID"]
-        dt = data["Date"]
-        data["AccumulatedDose"] = accumulated_dose_dict.get((pid, dt), 0)
-        data["DosePerYear"] = dose_per_year_dict.get((pid, dt), 0)
+    for d in all_data:
+        pid = d["PatientID"]
+        dt = d["Date"]
+        d["AccumulatedDose"] = accumulated_dose_dict.get((pid, dt), 0)
+        d["DosePerYear"] = dose_per_year_dict.get((pid, dt), 0)
 
     display_text_data()
-
-
-
 
 
 
