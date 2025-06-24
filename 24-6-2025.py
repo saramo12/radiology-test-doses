@@ -930,7 +930,6 @@ start_date_var = ctk.StringVar()
 ctk.CTkLabel(filters_frame, text="From Date:", text_color="black").pack(side="left", padx=(0, 5))
 ctk.CTkEntry(filters_frame, placeholder_text="YYYY-MM-DD", textvariable=start_date_var, width=130).pack(side="left", padx=(0, 20))
 start_date_var.trace_add("write", lambda *args: display_text_data())
-
 # فلتر إلى تاريخ
 end_date_var = ctk.StringVar()
 ctk.CTkLabel(filters_frame, text="To Date:", text_color="black").pack(side="left", padx=(0, 5))
