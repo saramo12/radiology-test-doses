@@ -10,6 +10,9 @@ from pydicom.errors import InvalidDicomError
 import re
 from rapidfuzz import fuzz  # أسرع من fuzzywuzzy ويمكنك استبداله به
 import socket
+import pytesseract
+pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\tesseract-5.5.1\tesseract.exe"
+
 ctk.set_appearance_mode("light")
 ctk.set_default_color_theme("dark-blue")
 CSV_FILE = "rad.csv"
@@ -269,6 +272,7 @@ def read_dicom_folder():
 
 
 def process_dicom_files(files):
+    
     if not files:
         return
 
@@ -293,10 +297,28 @@ def process_dicom_files(files):
             except:
                 date_obj = datetime.now()
 
-            # msv = ctdi * 0.014  # dose in mSv
-            # لو DLP موجود، استخدمه مباشرة
-            if dlp > 0:
-                # Estimate body region from StudyDescription
+            modality = getattr(ds, "Modality", "")
+            series_desc = getattr(ds, "SeriesDescription", "").lower()
+            k = 0.015
+            msv = 0
+
+            # لو CT و في ملف Patient Protocol، نستخدم OCR لاستخراج DLP
+            if modality == "CT" and "protocol" in series_desc:
+                if 'PixelData' in ds:
+                    arr = ds.pixel_array
+                    if arr.dtype != 'uint8':
+                        arr = (arr / arr.max() * 255).astype('uint8')
+                    img_pil = Image.fromarray(arr).convert("L")
+                    try:
+                        text = pytesseract.image_to_string(img_pil)
+                        match = re.search(r"Total\\s*DLP\\s*[:=]?\\s*(\\d+\\.?\\d*)", text, re.IGNORECASE)
+                        if match:
+                            dlp = float(match.group(1))
+                            k = 0.014  # Chest assumption
+                            msv = dlp * k
+                    except Exception as e:
+                        print("OCR Error:", e)
+            elif dlp > 0:
                 study_desc = getattr(ds, "StudyDescription", "").lower()
                 if "head" in study_desc or "brain" in study_desc:
                     k = 0.0021
@@ -307,14 +329,11 @@ def process_dicom_files(files):
                 elif "abdomen" in study_desc or "pelvis" in study_desc:
                     k = 0.015
                 else:
-                    k = 0.015  # default/fallback value
-
+                    k = 0.015
                 msv = dlp * k
-            # لو مفيش DLP، نحاول نحسبه من CTDIvol × طول المسح
             else:
-                length = float(getattr(ds, "TotalCollimationWidth", 0))  # أو أي تاج تاني للطول
+                length = float(getattr(ds, "TotalCollimationWidth", 0))
                 dlp = ctdi * length
-                k = 0.015  # fallback default
                 msv = dlp * k
 
             matched_key = None
@@ -328,14 +347,12 @@ def process_dicom_files(files):
             img = None
             if 'PixelData' in ds:
                 arr = ds.pixel_array
-                # تحويل الصورة إلى صيغة تدعمها PIL إذا كانت مش مدعومة
                 if arr.dtype != 'uint8':
-                    arr = (arr / arr.max() * 255).astype('uint8')  # Normalize to 0-255
-                img_pil = Image.fromarray(arr)
-                if img_pil.mode not in ["L", "RGB"]:
-                    img_pil = img_pil.convert("L")  # أو "RGB" حسب احتياجك
+                    arr = (arr / arr.max() * 255).astype('uint8')
+                img_pil = Image.fromarray(arr).convert("L")
                 img_pil.thumbnail((400, 400))
                 img = ImageTk.PhotoImage(img_pil)
+
             if key not in temp_cases:
                 data_dict = {
                     "Name": name,
@@ -350,7 +367,7 @@ def process_dicom_files(files):
                     "Accession": getattr(ds, "AccessionNumber", ""),
                     "Images": [],
                     "Path": path,
-                    "Modality": getattr(ds, "Modality", "Unknown"),
+                    "Modality": modality,
                     "Dataset": ds
                 }
                 temp_cases[key] = data_dict
@@ -368,31 +385,31 @@ def process_dicom_files(files):
 
     all_data.extend(temp_cases.values())
 
-    # ✅ حساب AccumulatedDose و DosePerYear بدون تقريب
+    # ✅ حساب AccumulatedDose و DosePerYear
     patient_records = {}
     for data in all_data:
-        patient_id = data["PatientID"]
+        pid = data["PatientID"]
         dose = data["mSv"]
         date = data["Date"]
-        if patient_id not in patient_records:
-            patient_records[patient_id] = []
-        patient_records[patient_id].append((date, dose))
+        if pid not in patient_records:
+            patient_records[pid] = []
+        patient_records[pid].append((date, dose))
 
     accumulated_dose_dict = {}
-    for patient_id, records in patient_records.items():
+    for pid, records in patient_records.items():
         records.sort()
         total = 0
         for date, dose in records:
             total += dose
-            accumulated_dose_dict[(patient_id, date)] = total  # no rounding
+            accumulated_dose_dict[(pid, date)] = total
 
     dose_per_year_dict = {}
-    for patient_id, records in patient_records.items():
+    for pid, records in patient_records.items():
         records.sort()
         for current_date, _ in records:
             year_start = current_date - timedelta(days=364)
             total_year = sum(dose for date, dose in records if year_start <= date <= current_date)
-            dose_per_year_dict[(patient_id, current_date)] = total_year  # no rounding
+            dose_per_year_dict[(pid, current_date)] = total_year
 
     for data in all_data:
         pid = data["PatientID"]
@@ -401,7 +418,6 @@ def process_dicom_files(files):
         data["DosePerYear"] = dose_per_year_dict.get((pid, dt), 0)
 
     display_text_data()
-
 
 
 
