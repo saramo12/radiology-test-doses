@@ -1,8 +1,8 @@
-MSH|^~\&|RadiologySystem|Hospital|PACS|Hospital|20250625153229||ORM^O01|77912|P|2.3
+MSH|^~\&|RadiologySystem|Hospital|PACS|Hospital|20250625175020||ORM^O01|77912|P|2.3
 PID|||77912||HANAN  SABRY  MAHMOUD|||19690624|F
 OBR|||77912||CT|||||20250624
-OBX|1|NM|CTDIvol||0.00000|mGy
-OBX|2|NM|DLP||0.00000|mGy*cm
-OBX|3|NM|Dose_mSv||0.00000|mSv
+OBX|1|NM|CTDIvol||0.03336|mGy
+OBX|2|NM|DLP||0.14010|mGy*cm
+OBX|3|NM|Dose_mSv||0.00210|mSv
 OBX|4|NM|AccumulatedDose||0.00000|mSv
 OBX|5|NM|DosePerYear||0.00000|mSv

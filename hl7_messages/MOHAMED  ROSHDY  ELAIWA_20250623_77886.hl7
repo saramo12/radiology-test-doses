@@ -1,8 +1,8 @@
-MSH|^~\&|RadiologySystem|Hospital|PACS|Hospital|20250625153232||ORM^O01|77886|P|2.3
+MSH|^~\&|RadiologySystem|Hospital|PACS|Hospital|20250625175038||ORM^O01|77886|P|2.3
 PID|||77886||MOHAMED  ROSHDY  ELAIWA|||19370623|M
 OBR|||77886||CT|||||20250623
-OBX|1|NM|CTDIvol||0.00000|mGy
-OBX|2|NM|DLP||0.00000|mGy*cm
-OBX|3|NM|Dose_mSv||0.00000|mSv
+OBX|1|NM|CTDIvol||0.26075|mGy
+OBX|2|NM|DLP||1.09516|mGy*cm
+OBX|3|NM|Dose_mSv||0.01643|mSv
 OBX|4|NM|AccumulatedDose||0.00000|mSv
 OBX|5|NM|DosePerYear||0.00000|mSv

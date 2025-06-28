@@ -1,8 +1,8 @@
-MSH|^~\&|RadiologySystem|Hospital|PACS|Hospital|20250621132600||ORM^O01|BRAIN|P|2.3
+MSH|^~\&|RadiologySystem|Hospital|PACS|Hospital|20250625174932||ORM^O01|BRAIN|P|2.3
 PID|||BRAIN||sara mohammed||||
 OBR|||BRAIN||CT|||||20240221
-OBX|1|NM|CTDIvol||43.30|mGy
-OBX|2|NM|DLP||0.00|mGy*cm
-OBX|3|NM|Dose_mSv||0.61|mSv
-OBX|4|NM|AccumulatedDose||0.00|mSv
-OBX|5|NM|DosePerYear||0.00|mSv
+OBX|1|NM|CTDIvol||43.30000|mGy
+OBX|2|NM|DLP||0.00000|mGy*cm
+OBX|3|NM|Dose_mSv||0.00000|mSv
+OBX|4|NM|AccumulatedDose||0.00000|mSv
+OBX|5|NM|DosePerYear||0.00000|mSv

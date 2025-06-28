@@ -1,8 +1,8 @@
-MSH|^~\&|RadiologySystem|Hospital|PACS|Hospital|20250621132604||ORM^O01|BRAIN|P|2.3
+MSH|^~\&|RadiologySystem|Hospital|PACS|Hospital|20250625174935||ORM^O01|BRAIN|P|2.3
 PID|||BRAIN||SANIA ELBAKY||||F
 OBR|||BRAIN||CT|||||20250212
-OBX|1|NM|CTDIvol||81.00|mGy
-OBX|2|NM|DLP||0.00|mGy*cm
-OBX|3|NM|Dose_mSv||1.13|mSv
-OBX|4|NM|AccumulatedDose||0.00|mSv
-OBX|5|NM|DosePerYear||0.00|mSv
+OBX|1|NM|CTDIvol||81.00000|mGy
+OBX|2|NM|DLP||0.00000|mGy*cm
+OBX|3|NM|Dose_mSv||0.00000|mSv
+OBX|4|NM|AccumulatedDose||0.00000|mSv
+OBX|5|NM|DosePerYear||0.00000|mSv

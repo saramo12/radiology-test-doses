@@ -1,8 +1,8 @@
-MSH|^~\&|RadiologySystem|Hospital|PACS|Hospital|20250621132610||ORM^O01|BRAIN|P|2.3
+MSH|^~\&|RadiologySystem|Hospital|PACS|Hospital|20250625174940||ORM^O01|BRAIN|P|2.3
 PID|||BRAIN||WARDA AWAAD||||F
 OBR|||BRAIN||CT|||||20230503
-OBX|1|NM|CTDIvol||33.30|mGy
-OBX|2|NM|DLP||0.00|mGy*cm
-OBX|3|NM|Dose_mSv||0.47|mSv
-OBX|4|NM|AccumulatedDose||0.00|mSv
-OBX|5|NM|DosePerYear||0.00|mSv
+OBX|1|NM|CTDIvol||33.30000|mGy
+OBX|2|NM|DLP||0.00000|mGy*cm
+OBX|3|NM|Dose_mSv||0.00000|mSv
+OBX|4|NM|AccumulatedDose||0.00000|mSv
+OBX|5|NM|DosePerYear||0.00000|mSv

@@ -1,8 +1,8 @@
-MSH|^~\&|RadiologySystem|Hospital|PACS|Hospital|20250625153234||ORM^O01|77891|P|2.3
+MSH|^~\&|RadiologySystem|Hospital|PACS|Hospital|20250625175045||ORM^O01|77891|P|2.3
 PID|||77891||TOKA  AYMAN  GAMAL|||19930624|F
 OBR|||77891||CT|||||20250624
-OBX|1|NM|CTDIvol||0.00000|mGy
-OBX|2|NM|DLP||0.00000|mGy*cm
-OBX|3|NM|Dose_mSv||0.00000|mSv
+OBX|1|NM|CTDIvol||0.26075|mGy
+OBX|2|NM|DLP||1.09516|mGy*cm
+OBX|3|NM|Dose_mSv||0.01643|mSv
 OBX|4|NM|AccumulatedDose||0.00000|mSv
 OBX|5|NM|DosePerYear||0.00000|mSv
