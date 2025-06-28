@@ -1,4 +1,4 @@
-MSH|^~\&|RadiologySystem|Hospital|PACS|Hospital|20250625174940||ORM^O01|BRAIN|P|2.3
+MSH|^~\&|RadiologySystem|Hospital|PACS|Hospital|20250628130114||ORM^O01|BRAIN|P|2.3
 PID|||BRAIN||WARDA AWAAD||||F
 OBR|||BRAIN||CT|||||20230503
 OBX|1|NM|CTDIvol||33.30000|mGy

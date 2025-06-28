@@ -1,4 +1,4 @@
-MSH|^~\&|RadiologySystem|Hospital|PACS|Hospital|20250625174941||ORM^O01|BRAIN|P|2.3
+MSH|^~\&|RadiologySystem|Hospital|PACS|Hospital|20250628130115||ORM^O01|BRAIN|P|2.3
 PID|||BRAIN||YASSER AATEF GABER||||M
 OBR|||BRAIN||CT|||||20230401
 OBX|1|NM|CTDIvol||59.60000|mGy

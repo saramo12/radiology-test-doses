@@ -1,4 +1,4 @@
-MSH|^~\&|RadiologySystem|Hospital|PACS|Hospital|20250625174935||ORM^O01|BRAIN|P|2.3
+MSH|^~\&|RadiologySystem|Hospital|PACS|Hospital|20250628130109||ORM^O01|BRAIN|P|2.3
 PID|||BRAIN||SANIA ELBAKY||||F
 OBR|||BRAIN||CT|||||20250212
 OBX|1|NM|CTDIvol||81.00000|mGy
