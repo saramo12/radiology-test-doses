@@ -1,8 +1,8 @@
-MSH|^~\&|RadiologySystem|Hospital|PACS|Hospital|20250629124623||ORM^O01|68579|P|2.3
+MSH|^~\&|RadiologySystem|Hospital|PACS|Hospital|20250629130357||ORM^O01|68579|P|2.3
 PID|||68579||AMAL MOHAMED AFIFY|||19620510|F
 OBR|||68579||CR|||||20250510
 OBX|1|NM|CTDIvol||0.00000|mGy
-OBX|2|NM|DLP||0.00000|mGy*cm
-OBX|3|NM|Dose_mSv||1.89768|mSv
+OBX|2|NM|DLP||15.81400|mGy*cm
+OBX|3|NM|Dose_mSv||3.95350|mSv
 OBX|4|NM|AccumulatedDose||0.00000|mSv
 OBX|5|NM|DosePerYear||0.00000|mSv

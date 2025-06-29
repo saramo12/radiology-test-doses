@@ -10,6 +10,7 @@ from pydicom.errors import InvalidDicomError
 import re
 from rapidfuzz import fuzz  # أسرع من fuzzywuzzy ويمكنك استبداله به
 import socket
+import pytesseract
 ctk.set_appearance_mode("light")
 ctk.set_default_color_theme("dark-blue")
 CSV_FILE = "rad.csv"
@@ -281,123 +282,125 @@ def process_dicom_files(files):
         for d in all_data
     ]
 
-    grouped_by_case = {}
+    case_dap_totals = {}  # لتجميع DAP لحالات X-RAY
+
     for path in files:
         try:
             ds = pydicom.dcmread(path)
-            pid = str(getattr(ds, "PatientID", ""))
-            study_date = getattr(ds, "StudyDate", "00000000")
+            name = str(getattr(ds, "PatientName", "Unknown"))
+            date_str = getattr(ds, "StudyDate", "00000000")
             try:
-                date_obj = datetime.strptime(study_date, "%Y%m%d")
+                date_obj = datetime.strptime(date_str, "%Y%m%d")
             except:
                 date_obj = datetime.now()
 
-            case_key = (pid, date_obj.date())
-            if case_key not in grouped_by_case:
-                grouped_by_case[case_key] = []
-            grouped_by_case[case_key].append((path, ds))
+            modality = getattr(ds, "Modality", "").upper()
+            series_desc = getattr(ds, "SeriesDescription", "").lower()
+            study_desc = getattr(ds, "StudyDescription", "").lower()
+            patient_id = getattr(ds, "PatientID", "")
+            accession = getattr(ds, "AccessionNumber", "")
+
+            key = (name, date_obj.date(), patient_id, accession)
+            if key not in temp_cases:
+                temp_cases[key] = {
+                    "Name": name,
+                    "Date": date_obj,
+                    "CTDIvol": 0,
+                    "DLP": 0,
+                    "mSv": 0,
+                    "kFactor": 0,
+                    "Sex": getattr(ds, "PatientSex", ""),
+                    "DOB": getattr(ds, "PatientBirthDate", ""),
+                    "PatientID": patient_id,
+                    "Accession": accession,
+                    "Images": [],
+                    "Path": path,
+                    "Modality": modality,
+                    "Dataset": ds
+                }
+
+            # حساب DLP من CT
+            if modality == "CT":
+                ctdi = float(getattr(ds, "CTDIvol", 0))
+                dlp = float(getattr(ds, "DLP", 0))
+                k = 0.015
+                
+                # لو في صورة بروتوكول
+                if "protocol" in series_desc and 'PixelData' in ds:
+                    arr = ds.pixel_array
+                    if arr.max() > 0:
+                        arr = (arr / arr.max() * 255).astype('uint8')
+                        img_pil = Image.fromarray(arr).convert("L")
+                        try:
+                            text = pytesseract.image_to_string(img_pil)
+                            match = re.search(r"Total\\s*DLP\\s*[:=]?\\s*(\\d+\\.?\\d*)", text, re.IGNORECASE)
+                            if match:
+                                dlp = float(match.group(1))
+                        except Exception as e:
+                            print("OCR Error:", e)
+                
+                if "head" in study_desc:
+                    k = 0.0021
+                elif "neck" in study_desc:
+                    k = 0.0059
+                elif "chest" in study_desc:
+                    k = 0.014
+                elif "abdomen" in study_desc or "pelvis" in study_desc:
+                    k = 0.015
+
+                msv = dlp * k
+                temp_cases[key]["CTDIvol"] = ctdi
+                temp_cases[key]["DLP"] = dlp
+                temp_cases[key]["kFactor"] = k
+                temp_cases[key]["mSv"] = msv
+
+            # حساب DAP من X-RAY/CR/DR
+            elif modality in ["CR", "DR", "DX", "XRAY"]:
+                dap = ds.get((0x0018, 0x115E), None)
+                if dap:
+                    if key not in case_dap_totals:
+                        case_dap_totals[key] = 0.0
+                    case_dap_totals[key] += float(dap.value)
+
+                    # عامل التحويل حسب المنطقة (كمثال)
+                    if "chest" in study_desc:
+                        k = 0.17
+                    elif "abdomen" in study_desc:
+                        k = 0.2
+                    elif "pelvis" in study_desc:
+                        k = 0.25
+                    else:
+                        k = 0.2  # default
+
+                    msv = case_dap_totals[key] * k
+                    temp_cases[key]["DLP"] = case_dap_totals[key]  # هنا DLP = DAP Total
+                    temp_cases[key]["kFactor"] = k
+                    temp_cases[key]["mSv"] = msv
+
+            # الصورة إن وجدت
+            img = None
+            if 'PixelData' in ds:
+                arr = ds.pixel_array
+                if arr.max() > 0:
+                    arr = (arr / arr.max() * 255).astype('uint8')
+                    img_pil = Image.fromarray(arr).convert("L")
+                    img_pil.thumbnail((400, 400))
+                    img = ImageTk.PhotoImage(img_pil)
+
+            if img is not None:
+                temp_cases[key]["Images"].append(img)
+
+            hl7_msg = convert_to_hl7_from_table(temp_cases[key])
+            hl7_filename = f"{HL7_DIR}/{name}_{date_obj.strftime('%Y%m%d')}_{patient_id}.hl7"
+            with open(hl7_filename, "w") as f:
+                f.write(hl7_msg)
 
         except Exception as e:
-            print("Read error:", e)
-
-    for (pid, date), dicom_list in grouped_by_case.items():
-        name = "Unknown"
-        modality = ""
-        dlp = 0
-        ctdi = 0
-        total_dap = 0
-        k = 0.015
-        msv = 0
-        selected_img = None
-
-        for path, ds in dicom_list:
-            modality = getattr(ds, "Modality", "").upper()
-            name = str(getattr(ds, "PatientName", "Unknown"))
-
-            if modality == "CT":
-                dlp += float(getattr(ds, "DLP", 0))
-                ctdi += float(getattr(ds, "CTDIvol", 0))
-                desc = getattr(ds, "SeriesDescription", "").lower()
-                if dlp == 0 and "protocol" in desc and 'PixelData' in ds:
-                    try:
-                        arr = ds.pixel_array
-                        if arr.dtype != 'uint8':
-                            arr = (arr / arr.max() * 255).astype('uint8')
-                        img = Image.fromarray(arr).convert("L")
-                        text = pytesseract.image_to_string(img)
-                        match = re.search(r"total\s*dlp\s*[:=]?[\s\n]*(\d+\.?\d*)", text, re.IGNORECASE)
-                        if match:
-                            dlp = float(match.group(1))
-                    except Exception as e:
-                        print("OCR error:", e)
-
-            elif modality in ["CR", "DR", "DX", "X-RAY"]:
-                # DAP من التاج
-                for elem in ds.iterall():
-                    if elem.tag == (0x0018, 0x115E):
-                        try:
-                            total_dap += float(elem.value)
-                        except:
-                            pass
-
-            # اختيار صورة واحدة للعرض فقط
-            if selected_img is None and 'PixelData' in ds:
-                arr = ds.pixel_array
-                if arr.dtype != 'uint8':
-                    arr = (arr / arr.max() * 255).astype('uint8')
-                img_pil = Image.fromarray(arr).convert("L")
-                img_pil.thumbnail((400, 400))
-                selected_img = ImageTk.PhotoImage(img_pil)
-
-        # الآن نحسب الجرعة حسب نوع الفحص
-        if modality == "CT" and dlp > 0:
-            study_desc = getattr(ds, "StudyDescription", "").lower()
-            if "head" in study_desc or "brain" in study_desc:
-                k = 0.0021
-            elif "neck" in study_desc:
-                k = 0.0059
-            elif "chest" in study_desc:
-                k = 0.014
-            elif "abdomen" in study_desc or "pelvis" in study_desc:
-                k = 0.015
-            msv = dlp * k
-
-        elif modality in ["CR", "DR", "DX", "X-RAY"] and total_dap > 0:
-            k = 0.12  # Chest default; يمكن تعديله حسب المنطقة إن وُجد
-            msv = total_dap * k
-
-        key = (name, date, pid, getattr(ds, "AccessionNumber", ""))
-
-        if key not in temp_cases:
-            data_dict = {
-                "Name": name,
-                "Date": date,
-                "CTDIvol": ctdi,
-                "DLP": dlp,
-                "mSv": msv,
-                "kFactor": k,
-                "Sex": getattr(ds, "PatientSex", ""),
-                "DOB": getattr(ds, "PatientBirthDate", ""),
-                "PatientID": pid,
-                "Accession": getattr(ds, "AccessionNumber", ""),
-                "Images": [],
-                "Path": path,
-                "Modality": modality,
-                "Dataset": ds
-            }
-            temp_cases[key] = data_dict
-
-        if selected_img:
-            temp_cases[key]["Images"].append(selected_img)
-
-        hl7_msg = convert_to_hl7_from_table(temp_cases[key])
-        hl7_filename = f"{HL7_DIR}/{name}_{date.strftime('%Y%m%d')}_{pid}.hl7"
-        with open(hl7_filename, "w") as f:
-            f.write(hl7_msg)
+            messagebox.showerror("Error", f"Failed to process file {path}.\nError: {e}")
 
     all_data.extend(temp_cases.values())
 
-    # حساب AccumulatedDose و DosePerYear
+    # الحسابات التراكمية
     patient_records = {}
     for data in all_data:
         pid = data["PatientID"]
@@ -430,6 +433,8 @@ def process_dicom_files(files):
         data["DosePerYear"] = dose_per_year_dict.get((pid, dt), 0)
 
     display_text_data()
+
+
 # ================================================================
 # عدل دالة read_dicom_files الحالية لتستخدم process_dicom_files:
 def read_dicom_files():
