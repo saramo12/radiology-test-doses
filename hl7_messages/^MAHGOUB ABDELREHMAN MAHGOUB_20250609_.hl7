@@ -1,6 +1,6 @@
-MSH|^~\&|RadiologySystem|Hospital|PACS|Hospital|20250629141438||ORM^O01||P|2.3
-PID|||||Unknown||||
-OBR||||||||||20250629
+MSH|^~\&|RadiologySystem|Hospital|PACS|Hospital|20250629141931||ORM^O01||P|2.3
+PID|||||^MAHGOUB ABDELREHMAN MAHGOUB||||M
+OBR|||||DX|||||20250609
 OBX|1|NM|CTDIvol||0.00000|mGy
 OBX|2|NM|DLP||0.00000|mGy*cm
 OBX|3|NM|Dose_mSv||0.00000|mSv

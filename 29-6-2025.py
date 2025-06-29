@@ -31,35 +31,7 @@ COMMON_VARIANTS = {
     "awaad": "awad"
 }
 # def convert_to_hl7(data):
-#     """
-#     data: dict تحتوي على كل معلومات الحالة مثل:
-#     'Name', 'Date', 'CTDIvol', 'DLP', 'mSv', 'Sex', 'DOB', 'StudyID', 'Accession',
-#     'Modality', 'AccumulatedDose', 'DosePerYear'
-#     """
-#     date = data.get("Date").strftime("%Y%m%d") if data.get("Date") else "00000000"
-#     name = data.get("Name", "Unknown")
-#     ctdi = data.get("CTDIvol", 0)
-#     dlp = data.get("DLP", 0)
-#     msv = data.get("mSv", 0)
-#     gender = data.get("Sex", "")
-#     dob = data.get("DOB", "")
-#     study_id = data.get("StudyID", "")
-#     accession = data.get("Accession", "")
-#     modality = data.get("Modality", "Unknown")
-#     accumulated_dose = data.get("AccumulatedDose", 0)
-#     dose_per_year = data.get("DosePerYear", 0)
 
-#     hl7_message = f"""MSH|^~\\&|RadiologySystem|Hospital|PACS|Hospital|{datetime.now().strftime('%Y%m%d%H%M%S')}||ORM^O01|{study_id}|P|2.3
-# PID|||{study_id}||{name}||{dob}|{gender}||
-# OBR|||{study_id}^{accession}||{modality}|||||{date}
-# OBX|1|NM|CTDIvol||{ctdi}|mGy|||
-# OBX|2|NM|DLP||{dlp}|mGy*cm|||
-# OBX|3|NM|Dose_mSv||{msv:.5f}|mSv|||
-# OBX|4|NM|AccumulatedDose||{accumulated_dose:.5f}|mSv|||
-# OBX|5|NM|DosePerYear||{dose_per_year:.5f}|mSv|||
-# """
-#
-# return hl7_message
 
 def send_hl7_message(ip, port, message):
     try:
@@ -83,24 +55,7 @@ OBX|3|NM|Dose_mSv||{data.get("mSv", 0):.5f}|mSv
 OBX|4|NM|AccumulatedDose||{accumulated_dose:.5f}|mSv
 OBX|5|NM|DosePerYear||{dose_per_year:.5f}|mSv
 """
-# def show_hl7_for_selected():
-#     selected = [data for var, data in check_vars if var.get()]
-    
-#     if len(selected) != 1:
-#         messagebox.showerror("Error", "Please select exactly one case to view HL7 message.")
-#         return
 
-#     data = selected[0]
-#     hl7_message = convert_to_hl7_from_table(data)
-
-#     hl7_window = ctk.CTkToplevel()
-#     hl7_window.title("HL7 Message")
-#     hl7_window.geometry("700x400")
-
-#     textbox = ctk.CTkTextbox(hl7_window, wrap="word")
-#     textbox.insert("1.0", hl7_message)
-#     textbox.configure(state="disabled")
-#     textbox.pack(fill="both", expand=True, padx=10, pady=10)
 def show_hl7_for_selected():
     
     selected = [data for var, data in check_vars if var.get()]
@@ -188,31 +143,6 @@ def is_same_person(name1, name2, threshold=85):
     return matches >= len(shorter) - 1  # يسمح باختلاف بسيط
 
 
-# def read_dicom_folder():
-#     folders = filedialog.askdirectory()
-#     if not folders:
-#         return
-
-#     dicom_files = []
-
-#     # البحث داخل المجلد والمجلدات الفرعية فقط عن ملفات DICOM السليمة
-#     for root_dir, dirs, files in os.walk(folders):
-#         for file in files:
-#             if file.lower().endswith(".dcm"):
-#                 file_path = os.path.join(root_dir, file)
-#                 try:
-#                     ds = pydicom.dcmread(file_path, stop_before_pixels=True)  # نقرأ الرأس فقط للتأكد
-#                     dicom_files.append(file_path)
-#                 except InvalidDicomError:
-#                     print(f"Skipped invalid DICOM file: {file_path}")
-#                 except Exception as e:
-#                     print(f"Error reading file {file_path}: {e}")
-
-#     if not dicom_files:
-#         messagebox.showinfo("No DICOM Files", "No valid DICOM files found in the selected folder.")
-#         return
-
-#     process_dicom_files(dicom_files)
 
 
 def is_dicom(file_path):
@@ -249,25 +179,6 @@ def read_dicom_folder():
         return
 
     process_dicom_files(dicom_files)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 def process_dicom_files(files):
     if not files:
@@ -610,69 +521,6 @@ def show_selected_cases_images():
         if var.get():
             show_case_images(case)
 
-
-
-
-
-# def show_selected_cases_images():
-#     selected = [data for var, data in check_vars if var.get()]
-#     if len(selected) not in [2, 4]:
-#         messagebox.showwarning("Selection Error", "Please select exactly 2 or 4 cases to display.")
-#         return
-
-#     new_win = ctk.CTkToplevel()
-#     new_win.title("Selected Cases Images and Info")
-#     new_win.geometry("1000x700")
-
-#     container = ctk.CTkScrollableFrame(new_win, corner_radius=10)
-#     container.pack(fill="both", expand=True, padx=10, pady=10)
-
-#     for i, case in enumerate(selected):
-#         frame = ctk.CTkFrame(container, corner_radius=10, border_width=1)
-#         frame.grid(row=0, column=i, padx=10, pady=10, sticky="n")
-
-#         images = case.get("Images", [])
-#         if not images and "Dataset" in case:
-#             ds = case["Dataset"]
-#             if 'PixelData' in ds:
-#                 img_pil = Image.fromarray(ds.pixel_array)
-#                 img_pil.thumbnail((300, 300))
-#                 img_tk = ImageTk.PhotoImage(img_pil)
-#                 label_img = ctk.CTkLabel(frame, image=img_tk)
-#                 label_img.image = img_tk
-#                 label_img.pack(pady=5)
-#         else:
-#             for img_tk in images:
-#                 label_img = ctk.CTkLabel(frame, image=img_tk)
-#                 label_img.image = img_tk
-#                 label_img.pack(pady=5)
-
-#         info_text = (
-#             f"Name: {case['Name']}\n"
-#             f"Date: {case['Date'].strftime('%Y-%m-%d')}\n"
-#             f"Study ID: {case['StudyID']}\n"
-#             f"Modality: {case['Modality']}\n"
-#             f"Dose (mSv): {case['mSv']:.5f}\n"
-#             f"Accumulated Dose: {case.get('AccumulatedDose', 0):.5f}\n"
-#             f"Dose Per Year: {case.get('DosePerYear', 0):.5f}"
-#         )
-#         label_info = ctk.CTkLabel(frame, text=info_text, justify="left")
-#         label_info.pack(pady=5)
-
-#     for i in range(len(selected)):
-#         container.grid_columnconfigure(i, weight=1)
-
-
-
-
-
-
-
-
-
-
-
-
 def show_case_images(case):
     window = ctk.CTkToplevel()
     window.title(f"Images for {case['Name']} - {case['Date'].strftime('%Y-%m-%d')}")
@@ -732,19 +580,6 @@ def show_case_images(case):
     next_btn.pack(side="right", padx=20)
 
     update_image()
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 def update_selected_cases():
@@ -902,13 +737,7 @@ bg_label = ctk.CTkLabel(root, image=bg_img_resized, text="")
 bg_label.place(x=0, y=0, relwidth=1, relheight=1)
 root.bind("<Configure>", resize_bg)
 
-# أزرار التحكم
-# الأزرار بخطوة relx = 0.14 لتوزيعهم بالتساوي تقريبًا
-# ctk.CTkButton(root, text="DICOM Files", command=read_dicom_files, width=120, height=35).place(relx=0.01, rely=0.22)
-# ctk.CTkButton(root, text="DICOM Folder", command=read_dicom_folder, width=120, height=35).place(relx=0.01, rely=0.27)
-# ctk.CTkButton(root, text="HL7 Message", command=show_hl7_for_selected, width=120, height=35).place(relx=0.01, rely=0.32)
-# ctk.CTkButton(root, text="Selected Cases", command=show_selected_cases, width=120, height=35).place(relx=0.01, rely=0.37)
-# ctk.CTkButton(root, text="Delete Cases", command=delete_selected, width=120, height=35).place(relx=0.01, rely=0.42)
+
 # ألوان موحدة للأزرار – Flat modern look
 BUTTON_COLOR = "#2563eb"        # أزرق هادئ
 BUTTON_HOVER = "#1e40af"        # أزرق داكن
