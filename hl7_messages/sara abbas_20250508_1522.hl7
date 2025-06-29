@@ -1,4 +1,4 @@
-MSH|^~\&|RadiologySystem|Hospital|PACS|Hospital|20250629130425||ORM^O01|1522|P|2.3
+MSH|^~\&|RadiologySystem|Hospital|PACS|Hospital|20250629143835||ORM^O01|1522|P|2.3
 PID|||1522||SARA ABBAS|||19900508|F
 OBR|||1522||CT|||||20250508
 OBX|1|NM|CTDIvol||4.55732|mGy
