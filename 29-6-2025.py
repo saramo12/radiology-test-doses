@@ -281,40 +281,71 @@ def process_dicom_files(files):
         for d in all_data
     ]
 
+    dap_accumulator = {}  # لتجميع DAP لكل حالة X-RAY
+
     for path in files:
         try:
             ds = pydicom.dcmread(path)
             name = str(getattr(ds, "PatientName", "Unknown"))
             ctdi = float(getattr(ds, "CTDIvol", 0))
             dlp = float(getattr(ds, "DLP", 0))
+            modality = getattr(ds, "Modality", "").upper()
+            study_desc = getattr(ds, "StudyDescription", "").lower()
             date_str = getattr(ds, "StudyDate", "00000000")
             try:
                 date_obj = datetime.strptime(date_str, "%Y%m%d")
             except:
                 date_obj = datetime.now()
 
-            # msv = ctdi * 0.014  # dose in mSv
-            # لو DLP موجود، استخدمه مباشرة
-            if dlp > 0:
-                # Estimate body region from StudyDescription
-                study_desc = getattr(ds, "StudyDescription", "").lower()
-                if "head" in study_desc or "brain" in study_desc:
-                    k = 0.0021
-                elif "neck" in study_desc:
-                    k = 0.0059
-                elif "chest" in study_desc:
-                    k = 0.014
-                elif "abdomen" in study_desc or "pelvis" in study_desc:
-                    k = 0.015
-                else:
-                    k = 0.015  # default/fallback value
+            k = 0.015
+            msv = 0
 
-                msv = dlp * k
-            # لو مفيش DLP، نحاول نحسبه من CTDIvol × طول المسح
-            else:
-                length = float(getattr(ds, "TotalCollimationWidth", 0))  # أو أي تاج تاني للطول
-                dlp = ctdi * length
-                k = 0.015  # fallback default
+            # --- CT معالجة
+            if modality == "CT":
+                if dlp > 0:
+                    if "head" in study_desc or "brain" in study_desc:
+                        k = 0.0021
+                    elif "neck" in study_desc:
+                        k = 0.0059
+                    elif "chest" in study_desc:
+                        k = 0.014
+                    elif "abdomen" in study_desc or "pelvis" in study_desc:
+                        k = 0.015
+                    msv = dlp * k
+                else:
+                    length = float(getattr(ds, "TotalCollimationWidth", 0))
+                    dlp = ctdi * length
+                    msv = dlp * k
+
+            # --- X-RAY / CR / DR معالجة DAP
+            elif modality in ["CR", "DR", "DX", "XRAY", "X-RAY"]:
+                dap = 0
+
+                # محاولة قراءة DAP من التاجات
+                for tag in [(0x0018, 0x1405), (0x0018, 0x9323)]:
+                    try:
+                        val = float(ds.get(tag).value)
+                        dap += val
+                    except:
+                        continue
+
+                # نحفظ كل DAP في dict مؤقت للمريض عشان نجمّعهم
+                patient_key = (name, date_obj.date(), getattr(ds, "PatientID", ""), getattr(ds, "AccessionNumber", ""))
+                if patient_key not in dap_accumulator:
+                    dap_accumulator[patient_key] = 0
+                dap_accumulator[patient_key] += dap
+
+                # تحديد k حسب المنطقة
+                if "head" in study_desc or "brain" in study_desc:
+                    k = 0.0031
+                elif "chest" in study_desc:
+                    k = 0.017
+                elif "abdomen" in study_desc or "pelvis" in study_desc:
+                    k = 0.019
+                else:
+                    k = 0.015
+
+                dlp = dap_accumulator[patient_key]
                 msv = dlp * k
 
             matched_key = None
@@ -325,17 +356,20 @@ def process_dicom_files(files):
             key = matched_key if matched_key else (
                 name, date_obj.date(), getattr(ds, "PatientID", ""), getattr(ds, "AccessionNumber", "")
             )
+
             img = None
             if 'PixelData' in ds:
                 arr = ds.pixel_array
-                # تحويل الصورة إلى صيغة تدعمها PIL إذا كانت مش مدعومة
-                if arr.dtype != 'uint8':
-                    arr = (arr / arr.max() * 255).astype('uint8')  # Normalize to 0-255
+                if arr.max() > 0:
+                    arr = (arr / arr.max() * 255).astype('uint8')
+                else:
+                    arr = arr.astype('uint8')
                 img_pil = Image.fromarray(arr)
                 if img_pil.mode not in ["L", "RGB"]:
-                    img_pil = img_pil.convert("L")  # أو "RGB" حسب احتياجك
+                    img_pil = img_pil.convert("L")
                 img_pil.thumbnail((400, 400))
                 img = ImageTk.PhotoImage(img_pil)
+
             if key not in temp_cases:
                 data_dict = {
                     "Name": name,
@@ -350,7 +384,7 @@ def process_dicom_files(files):
                     "Accession": getattr(ds, "AccessionNumber", ""),
                     "Images": [],
                     "Path": path,
-                    "Modality": getattr(ds, "Modality", "Unknown"),
+                    "Modality": modality,
                     "Dataset": ds
                 }
                 temp_cases[key] = data_dict
@@ -368,31 +402,31 @@ def process_dicom_files(files):
 
     all_data.extend(temp_cases.values())
 
-    # ✅ حساب AccumulatedDose و DosePerYear بدون تقريب
+    # حساب AccumulatedDose و DosePerYear
     patient_records = {}
     for data in all_data:
-        patient_id = data["PatientID"]
+        pid = data["PatientID"]
         dose = data["mSv"]
         date = data["Date"]
-        if patient_id not in patient_records:
-            patient_records[patient_id] = []
-        patient_records[patient_id].append((date, dose))
+        if pid not in patient_records:
+            patient_records[pid] = []
+        patient_records[pid].append((date, dose))
 
     accumulated_dose_dict = {}
-    for patient_id, records in patient_records.items():
+    for pid, records in patient_records.items():
         records.sort()
         total = 0
         for date, dose in records:
             total += dose
-            accumulated_dose_dict[(patient_id, date)] = total  # no rounding
+            accumulated_dose_dict[(pid, date)] = total
 
     dose_per_year_dict = {}
-    for patient_id, records in patient_records.items():
+    for pid, records in patient_records.items():
         records.sort()
         for current_date, _ in records:
             year_start = current_date - timedelta(days=364)
             total_year = sum(dose for date, dose in records if year_start <= date <= current_date)
-            dose_per_year_dict[(patient_id, current_date)] = total_year  # no rounding
+            dose_per_year_dict[(pid, current_date)] = total_year
 
     for data in all_data:
         pid = data["PatientID"]
@@ -401,8 +435,6 @@ def process_dicom_files(files):
         data["DosePerYear"] = dose_per_year_dict.get((pid, dt), 0)
 
     display_text_data()
-
-
 
 
 
