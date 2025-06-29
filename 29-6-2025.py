@@ -281,78 +281,77 @@ def process_dicom_files(files):
         for d in all_data
     ]
 
-    grouped_files = {}  # تجميع الملفات حسب (الاسم، التاريخ، ID) لتجميع الحالة
-
+    grouped_by_case = {}
     for path in files:
         try:
-            ds = pydicom.dcmread(path, stop_before_pixels=True)
-            name = str(getattr(ds, "PatientName", "Unknown"))
-            date_str = getattr(ds, "StudyDate", "00000000")
-            date_obj = datetime.strptime(date_str, "%Y%m%d") if date_str else datetime.now()
-            patient_id = getattr(ds, "PatientID", "")
-            accession = getattr(ds, "AccessionNumber", "")
+            ds = pydicom.dcmread(path)
+            pid = str(getattr(ds, "PatientID", ""))
+            study_date = getattr(ds, "StudyDate", "00000000")
+            try:
+                date_obj = datetime.strptime(study_date, "%Y%m%d")
+            except:
+                date_obj = datetime.now()
 
-            key = (name, date_obj.date(), patient_id, accession)
-            if key not in grouped_files:
-                grouped_files[key] = []
-            grouped_files[key].append(path)
-        except:
-            continue
+            case_key = (pid, date_obj.date())
+            if case_key not in grouped_by_case:
+                grouped_by_case[case_key] = []
+            grouped_by_case[case_key].append((path, ds))
 
-    for key, paths in grouped_files.items():
-        name, date, patient_id, accession = key
+        except Exception as e:
+            print("Read error:", e)
+
+    for (pid, date), dicom_list in grouped_by_case.items():
+        name = "Unknown"
         modality = ""
         dlp = 0
         ctdi = 0
-        msv = 0
-        k = 0.015
-        study_desc = ""
-        images = []
-
         total_dap = 0
-        xray_detected = False
-        ct_detected = False
+        k = 0.015
+        msv = 0
+        selected_img = None
 
-        for path in paths:
-            try:
-                ds = pydicom.dcmread(path)
+        for path, ds in dicom_list:
+            modality = getattr(ds, "Modality", "").upper()
+            name = str(getattr(ds, "PatientName", "Unknown"))
 
-                modality = getattr(ds, "Modality", "").upper()
-                study_desc = getattr(ds, "StudyDescription", "").lower()
+            if modality == "CT":
+                dlp += float(getattr(ds, "DLP", 0))
+                ctdi += float(getattr(ds, "CTDIvol", 0))
+                desc = getattr(ds, "SeriesDescription", "").lower()
+                if dlp == 0 and "protocol" in desc and 'PixelData' in ds:
+                    try:
+                        arr = ds.pixel_array
+                        if arr.dtype != 'uint8':
+                            arr = (arr / arr.max() * 255).astype('uint8')
+                        img = Image.fromarray(arr).convert("L")
+                        text = pytesseract.image_to_string(img)
+                        match = re.search(r"total\s*dlp\s*[:=]?[\s\n]*(\d+\.?\d*)", text, re.IGNORECASE)
+                        if match:
+                            dlp = float(match.group(1))
+                    except Exception as e:
+                        print("OCR error:", e)
 
-                if modality == "CT":
-                    ct_detected = True
-                    dlp_val = float(getattr(ds, "DLP", 0))
-                    if dlp_val > 0:
-                        dlp = max(dlp, dlp_val)
-                    ctdi = float(getattr(ds, "CTDIvol", 0))
-
-                elif modality in ["CR", "DR", "DX", "XRAY"]:
-                    xray_detected = True
-                    for tag in [(0x0018, 0x1405), (0x0018, 0x115E)]:
+            elif modality in ["CR", "DR", "DX", "X-RAY"]:
+                # DAP من التاج
+                for elem in ds.iterall():
+                    if elem.tag == (0x0018, 0x115E):
                         try:
-                            val = float(ds.get(tag).value)
-                            total_dap += val
+                            total_dap += float(elem.value)
                         except:
-                            continue
+                            pass
 
-                # تحميل الصور إن وجدت
-                if 'PixelData' in ds:
-                    arr = ds.pixel_array
-                    if arr.max() > 0:
-                        arr = (arr / arr.max() * 255).astype('uint8')
-                    else:
-                        arr = arr.astype('uint8')
-                    img_pil = Image.fromarray(arr)
-                    if img_pil.mode not in ["L", "RGB"]:
-                        img_pil = img_pil.convert("L")
-                    img_pil.thumbnail((400, 400))
-                    images.append(ImageTk.PhotoImage(img_pil))
-            except:
-                continue
+            # اختيار صورة واحدة للعرض فقط
+            if selected_img is None and 'PixelData' in ds:
+                arr = ds.pixel_array
+                if arr.dtype != 'uint8':
+                    arr = (arr / arr.max() * 255).astype('uint8')
+                img_pil = Image.fromarray(arr).convert("L")
+                img_pil.thumbnail((400, 400))
+                selected_img = ImageTk.PhotoImage(img_pil)
 
-        if ct_detected:
-            # تقدير k حسب منطقة الجسم
+        # الآن نحسب الجرعة حسب نوع الفحص
+        if modality == "CT" and dlp > 0:
+            study_desc = getattr(ds, "StudyDescription", "").lower()
             if "head" in study_desc or "brain" in study_desc:
                 k = 0.0021
             elif "neck" in study_desc:
@@ -361,52 +360,44 @@ def process_dicom_files(files):
                 k = 0.014
             elif "abdomen" in study_desc or "pelvis" in study_desc:
                 k = 0.015
-            else:
-                k = 0.015
-            if dlp == 0:
-                dlp = ctdi * 100  # fallback
             msv = dlp * k
 
-        elif xray_detected:
-            if "head" in study_desc or "brain" in study_desc:
-                k = 0.0031
-            elif "chest" in study_desc:
-                k = 0.017
-            elif "abdomen" in study_desc or "pelvis" in study_desc:
-                k = 0.019
-            else:
-                k = 0.015
-            dlp = total_dap
+        elif modality in ["CR", "DR", "DX", "X-RAY"] and total_dap > 0:
+            k = 0.12  # Chest default; يمكن تعديله حسب المنطقة إن وُجد
             msv = total_dap * k
 
-        key_full = key
-        if key_full not in temp_cases:
+        key = (name, date, pid, getattr(ds, "AccessionNumber", ""))
+
+        if key not in temp_cases:
             data_dict = {
                 "Name": name,
-                "Date": datetime.combine(date, datetime.min.time()),
+                "Date": date,
                 "CTDIvol": ctdi,
                 "DLP": dlp,
                 "mSv": msv,
                 "kFactor": k,
-                "Sex": "",
-                "DOB": "",
-                "PatientID": patient_id,
-                "Accession": accession,
-                "Images": images,
-                "Path": paths[0],
+                "Sex": getattr(ds, "PatientSex", ""),
+                "DOB": getattr(ds, "PatientBirthDate", ""),
+                "PatientID": pid,
+                "Accession": getattr(ds, "AccessionNumber", ""),
+                "Images": [],
+                "Path": path,
                 "Modality": modality,
-                "Dataset": None
+                "Dataset": ds
             }
-            temp_cases[key_full] = data_dict
+            temp_cases[key] = data_dict
 
-        hl7_msg = convert_to_hl7_from_table(temp_cases[key_full])
-        hl7_filename = f"{HL7_DIR}/{name}_{date.strftime('%Y%m%d')}_{patient_id}.hl7"
+        if selected_img:
+            temp_cases[key]["Images"].append(selected_img)
+
+        hl7_msg = convert_to_hl7_from_table(temp_cases[key])
+        hl7_filename = f"{HL7_DIR}/{name}_{date.strftime('%Y%m%d')}_{pid}.hl7"
         with open(hl7_filename, "w") as f:
             f.write(hl7_msg)
 
     all_data.extend(temp_cases.values())
 
-    # ✅ حساب AccumulatedDose و DosePerYear
+    # حساب AccumulatedDose و DosePerYear
     patient_records = {}
     for data in all_data:
         pid = data["PatientID"]
@@ -439,8 +430,6 @@ def process_dicom_files(files):
         data["DosePerYear"] = dose_per_year_dict.get((pid, dt), 0)
 
     display_text_data()
-
-
 # ================================================================
 # عدل دالة read_dicom_files الحالية لتستخدم process_dicom_files:
 def read_dicom_files():
