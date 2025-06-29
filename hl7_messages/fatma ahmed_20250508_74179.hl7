@@ -1,8 +1,8 @@
-MSH|^~\&|RadiologySystem|Hospital|PACS|Hospital|20250629105708||ORM^O01|74179|P|2.3
+MSH|^~\&|RadiologySystem|Hospital|PACS|Hospital|20250629122151||ORM^O01|74179|P|2.3
 PID|||74179||fatma ahmed|||19590508|F
 OBR|||74179||CR|||||20250508
 OBX|1|NM|CTDIvol||0.00000|mGy
-OBX|2|NM|DLP||0.00000|mGy*cm
-OBX|3|NM|Dose_mSv||0.00000|mSv
+OBX|2|NM|DLP||164.00000|mGy*cm
+OBX|3|NM|Dose_mSv||2.46000|mSv
 OBX|4|NM|AccumulatedDose||0.00000|mSv
 OBX|5|NM|DosePerYear||0.00000|mSv
