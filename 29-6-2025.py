@@ -726,7 +726,7 @@ def resize_bg(event):
 
 # واجهة المستخدم
 root = ctk.CTk()
-root.title("DICOM Viewer - Responsive Design")
+root.title("Accumulated Dose App ")
 root.geometry("1300x900")
 root.configure(bg="white")  # خلفية بيضاء
 
